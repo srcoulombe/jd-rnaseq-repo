@@ -331,21 +331,54 @@ get.conversion.map <- function( raw.counts.data, biomart="ensembl", dataset="hsa
                                 BMattributes=c('ensembl_gene_id','external_gene_name'),
                                 BMfilters='ensembl_gene_id',
                                 str_replace_pattern=".[0-9]+$",
-                                str_replace_replacement=""){
+                                str_replace_replacement="",
+                                prefetched_file_name="ensembl_ID_gene_symbol_map_may2020.tsv"){
   mart <- useMart(
     biomart=biomart,
     dataset=dataset
   )
-  x.to.y.map <- getBM(
-    attributes=BMattributes,
-    filters=BMfilters,
-    values=str_replace(
-      rownames(raw.counts.data$raw.data),
-      pattern=str_replace_pattern,
-      replacement=str_replace_replacement
-    ),
-    mart=mart
-  )
+  
+  x.to.y.map <- tryCatch({
+    getBM(
+      attributes=BMattributes,
+      filters=BMfilters,
+      values=str_replace(
+        rownames(raw.counts.data$raw.data),
+        pattern=str_replace_pattern,
+        replacement=str_replace_replacement
+      ),
+      mart=mart
+    )
+  }, error=function(exception) {
+    message("Caught server-side error:")
+    message(exception)
+    message("Using pre-computed conversion file instead...")
+    return(
+      as.data.frame(
+        read.csv(
+          prefetched_file_name,
+          sep='\t',
+          header=TRUE,
+          encoding='utf-8'
+        )
+      )
+    )
+  }, finally = {
+    message("Map loaded!")
+  })
+  
+  
+  #x.to.y.map <- getBM(
+  #  attributes=BMattributes,
+  #  filters=BMfilters,
+  #  values=str_replace(
+  #    rownames(raw.counts.data$raw.data),
+  #    pattern=str_replace_pattern,
+  #    replacement=str_replace_replacement
+  #  ),
+  #  mart=mart
+  #)
+  
   rownames(x.to.y.map) <- x.to.y.map$ensembl_gene_id
   x.to.y.map<-subset(x.to.y.map, select=('external_gene_name'))
   return(x.to.y.map)
@@ -355,7 +388,7 @@ save.spreadsheet <- function( DESeq2.results, edgeR.results,
                               raw.counts.data, contrasts, 
                               symbol.to.id.map, fdr,
                               file_prefix, mainDir, subDir, 
-                              saveoutput=TRUE){
+                              saveoutput=TRUE, chosen_filter="mean"){
   if(dir.exists(file.path(mainDir, subDir))) {
     print(
       paste0(
@@ -366,11 +399,14 @@ save.spreadsheet <- function( DESeq2.results, edgeR.results,
       )
     )
     return()
+  } else {
+    dir.create(file.path(mainDir, subDir), recursive = TRUE)
   }
   
   all.dataframes <- list()
   for (contrast.name in colnames(contrasts)) {
     contrast.conditions <- strsplit(contrast.name, "-")[[1]]
+    print(contrast.conditions)
     relevant.columns <- lapply(contrast.conditions, grepl, colnames(raw.counts.data$raw.data))
     relevant.columns.mask <- sapply(transpose(relevant.columns), any) # column-wise OR
     relevant.columns <- colnames(raw.counts.data$raw.data)[relevant.columns.mask] # from indices to names
@@ -378,12 +414,15 @@ save.spreadsheet <- function( DESeq2.results, edgeR.results,
     
     relevant.raw.data <- raw.counts.data$raw.data[relevant.columns]
     
-    relevant.DESeq2.normalized.data <- counts(DESeq2.results$DGE_obj, normalized=TRUE)[relevant.columns.mask]
+    relevant.DESeq2.normalized.data <- as.data.frame(counts(DESeq2.results$DGE_obj, normalized=TRUE))[relevant.columns.mask]
+    colnames(relevant.DESeq2.normalized.data) <- paste("DESeq_norm", colnames(relevant.DESeq2.normalized.data), sep = "_")
     
-    relevant.edger.normalized.data <- t(
+
+    relevant.edger.normalized.data <- as.data.frame(t(
       t(edgeR.results$DGE_obj$pseudo.counts)*(edgeR.results$DGE_obj$samples$norm.factors)
-    )[relevant.columns.mask]
-    
+    ))[relevant.columns.mask]
+    colnames(relevant.edger.normalized.data) <- paste("edgeR_norm", colnames(relevant.edger.normalized.data), sep = "_")
+
     relevant.DESeq2.results <- DESeq2.results[[contrast.name]][['IF.results']]
     relevant.DESeq2.metadata <- DESeq2.results[[contrast.name]][['IF.metadata']]
     
@@ -391,11 +430,11 @@ save.spreadsheet <- function( DESeq2.results, edgeR.results,
     relevant.edger.metadata <- edgeR.results[[contrast.name]][['IF.metadata']]
     
     all_results <- list(
-      relevant.raw.data,
-      relevant.DESeq2.normalized.data,
-      relevant.edger.normalized.data,
-      relevant.DESeq2.results,
-      relevant.edger.results
+      as.data.frame(relevant.raw.data),
+      as.data.frame(relevant.DESeq2.normalized.data),
+      as.data.frame(relevant.edger.normalized.data),
+      as.data.frame(relevant.DESeq2.results),
+      as.data.frame(relevant.edger.results)
     )
     
     for(i in 1:length(all_results)){
@@ -452,12 +491,14 @@ save.spreadsheet <- function( DESeq2.results, edgeR.results,
           )
         )
         return()
+      } else {
+        print(paste0("Saving in: ", output.file.path)  )
       }
       
       
       write.table(
         all_results, 
-        output.file.path, 
+        file=output.file.path, 
         quote=FALSE, 
         sep='\t', 
         row.names=FALSE
@@ -485,14 +526,18 @@ save.spreadsheet <- function( DESeq2.results, edgeR.results,
         paste0(
           "saved results for ", 
           contrast.name, 
-          " in:\n", 
+          " in:", 
           output.file.path
         )
       )
     }
-    
+  }
+  if(saveoutput){
+    return(file.path(mainDir,subDir))
   }
 }
+
+
 
 
 ### end of file_io.R ###

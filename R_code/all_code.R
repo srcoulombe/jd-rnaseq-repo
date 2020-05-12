@@ -1,0 +1,1013 @@
+###############
+# DESCRIPTION #
+###############
+
+
+## start of installation block ##
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+## If a package is installed, it will be loaded. If any 
+## are not, the missing package(s) will be installed 
+## from CRAN and then loaded.
+
+## First specify the packages of interest
+Bioc_dependencies = c(
+  "DESeq2", 
+  "DESeq",
+  "HTSFilter",
+  "genefilter",
+  "edgeR",
+  "limma",
+  "Glimma",
+  "pheatmap",
+  "biomaRt"
+)
+
+CRAN_dependencies = c(
+  "data.table",
+  "tidyr",
+  "plyr",
+  "dplyr",
+  "reshape2",
+  "factoextra",
+  "RColorBrewer"
+)
+
+## Now load or install&load all
+package.check <- lapply(
+  Bioc_dependencies,
+  FUN = function(x) {
+    if (!require(x, character.only = TRUE)) {
+      BiocManager::install(x)
+      library(x, character.only = TRUE)
+    }
+  }
+)
+
+package.check <- lapply(
+  CRAN_dependencies,
+  FUN = function(x) {
+    if (!require(x, character.only = TRUE)) {
+      install.packages(x, dependencies = TRUE)
+      library(x, character.only = TRUE)
+    }
+  }
+)
+
+
+#BiocManager::install("DESeq2")
+##BiocManager::install("mixOmics")
+#BiocManager::install("HTSFilter")
+#BiocManager::install("genefilter")
+#BiocManager::install("edgeR")
+#BiocManager::install("limma")
+#BiocManager::install("Glimma")
+##BiocManager::install("circlize")
+#BiocManager::install("pheatmap")
+#BiocManager::install("biomaRt")
+### end of installation block ###
+
+
+## start of file_io.R ##
+# external dependencies
+library(biomaRt)
+library(stringr)
+library(dplyr)
+
+rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
+                                          sep=",", header=TRUE, row.names=1,
+                                          keep_columns=c(),drop_columns=c(),
+                                          make_ensembl_to_symbol=TRUE,
+                                          make_histogram=FALSE, make_boxplot=FALSE,
+                                          verbose=FALSE) {
+  
+  # Do-it-all function that 
+  # 1. loads the contents of the `sep`-separated file specified by 
+  # `rawCountsMatrix_filepath` (passing the `sep`,`header`, and `row.names`
+  # parameter values to the read.table function), 
+  # 2. keeps the columns specified by `keep_columns` (also drops columns 
+  # specified by `drop_columns`),
+  # 3. creates a vector of condition labels inferred from the retained columns'
+  # names, and
+  # 4. returns the filtered dataframe, the vector of condition labels
+  
+  # PARAMETERS:
+  #
+  #   rawCountsMatrix_filepath: string path to the file containing raw counts.
+  #
+  #   sep, header, row.names:   optional parameters to pass onto read.table.
+  #
+  #                             default to sep=",", header=TRUE, row.names=1.
+  #
+  #   keep_columns, drop_columns:   vectors of column names (strings) to keep/drop.
+  #                                 cannot contain any shared strings.
+  #  
+  #   `make_ensembl_to_symbol`: if TRUE, will create a [ENSEMBL ID, Gene Symbol] 
+  #                             dataframe and return it as the third item in the returned
+  #                             list. Assumes that the ENSEMBL IDs are the row names of the
+  #                             `raw.data` dataframe, and that the dataframe has a "Symbol" column.
+  #                           
+  #                             if FALSE, the third item in the returned list will be NULL.
+  #                             
+  #                             default = TRUE.
+  #
+  #   `makeplots`:  indicates whether to produce exploratory plots or not.
+  #
+  #                 default = TRUE.
+  #
+  #   `verbose`:  indicator of verbosity. 
+  #
+  #               default = TRUE.
+  #
+  # RETURNS:
+  #
+  #   list("raw.data" = raw.data, "conditions" = conditions, "ENSEMBL_ID_to_Symbol" = ENSEMBL_ID_to_Symbol)
+  #
+  #     where:  raw.data is the raw counts dataframe after column selection,
+  #
+  #             conditions is the vector of conditions inferred from the selected columns' names, and
+  #
+  #             ENSEMBL_ID_to_Symbol is either NULL (if make_ensembl_to_symbol=FALSE) 
+  #             or a [ENSEMBL ID, Gene Symbol] dataframe (if make_ensembl_to_symbol=TRUE)
+  #
+  # TODO:
+  #   nicer graphs with ggplot
+  
+  if(length(intersect(keep_columns, drop_columns)) > 0) {
+    stop("`keep_columns` and `drop_columns` aren't mutually exclusive")
+  }
+  
+  if( (length(keep_columns) == 0) & (length(drop_columns) == 0) ) {
+    stop("at least one of `keep_columns` and `drop_columns` must be non-empty")
+  }
+  
+  if(verbose) {
+    print("Loading raw counts matrix")
+  }
+  
+  # load data into dataframe
+  raw.data <- data.frame(
+    read.csv(
+      rawCountsMatrix_filepath, 
+      sep=sep, 
+      header=header, 
+      row.names=row.names,
+      encoding='utf-8'
+    )
+  )
+  
+  print(head(raw.data))
+  print(tail(raw.data))
+  
+  if(verbose){
+    print("Dimensions of raw count matrix:")
+    print(dim(raw.data))
+    print("Columns of raw count matrix:")
+    print(colnames(raw.data))
+    print("Head of raw count matrix:")
+    print(head(raw.data))
+  }
+  
+  if(make_ensembl_to_symbol) {
+    if(verbose) print("Creating ENSEMBL ID <-> Gene Symbol dataframe")
+    # create [ENSEMBLE ID, Gene Symbol] dataframe for future lookups
+    ENSEMBL_ID_to_Symbol <- data.frame(
+      rownames(raw.data), raw.data$Symbol
+    )
+    colnames(ENSEMBL_ID_to_Symbol) <- c("ENSEMBLID", "Symbol")
+    
+  } else {
+    make_ensembl_to_symbol=FALSE
+  }
+  
+  if(verbose) {
+    print("Keeping the following columns in raw counts matrix:")
+    print(keep_columns)
+  }
+  # positive column selection
+  raw.data <- raw.data[,which(names(raw.data) %in% keep_columns)]
+  # negative column selection
+  if(length(drop_columns) > 0) {
+    if(verbose) {
+      print("Dropping the following columns in raw counts matrix:")
+      print(drop_columns)
+    }
+    raw.data <- raw.data[,-which(names(raw.data) %in% drop_columns)]
+  }
+  
+  conditions <- sub(
+    "\\_.*", "",
+    colnames(raw.data)
+  )
+  if(verbose){
+    print("Inferred following conditions from filtered count matrix:\n")
+    print(conditions)
+  }
+  
+  if(make_histogram | make_boxplot) {
+    
+    plotLog1PReadCountsDistribution(
+      raw.data, 
+      histogram=make_histogram, boxplot=make_boxplot,
+      verbose=verbose
+    )
+  }
+  
+  if(make_ensembl_to_symbol) {
+    list_to_return <- list("raw.data" = raw.data, "conditions" = conditions, "ENSEMBL_ID_to_Symbol" = ENSEMBL_ID_to_Symbol)  
+  } else {
+    list_to_return <- list("raw.data" = raw.data, "conditions" = conditions)
+  }
+  
+  return(list_to_return)
+}
+
+write.gct <- function(gct, filename, check.file.extension=TRUE){
+  #
+  # save a GCT result to a file, ensuring the filename has the extension .gct
+  #
+  # shamelessly ripped off of:
+  # https://github.com/genepattern/DESeq2/blob/abac851160ed1f84af2aa06f85b497c4b144656e/src/common.R
+  # in order to produce the DESeq2-normalized counts file (.gct format)
+  # to use as input to GSEA
+  
+  if(check.file.extension) {
+    filename <- check.extension(filename, ".gct") 
+  }
+  if(is.null(gct$data)) {
+    exit("No data given.")
+  }
+  if(is.null(row.names(gct$data))) {
+    exit("No row names given.")
+  }
+  if(is.null(colnames(gct$data))) {
+    exit("No column names given.")
+  }
+  
+  rows <- dim(gct$data)[1]
+  columns <- dim(gct$data)[2]
+  
+  if(rows!=length(row.names(gct$data))) {
+    exit("Number of data rows (", rows, ") not equal to number of row names (", length(row.names(gct$data)), ").")
+  }
+  if(columns!=length(colnames(gct$data))) {
+    exit("Number of data columns (", columns , " not equal to number of column names (", length(colnames(gct$data)), ").")
+  }
+  
+  if(!is.null(gct$row.descriptions)) {
+    if(length(gct$row.descriptions)!=rows) {
+      exit("Number of row descriptions (", length(gct$row.descriptions), ") not equal to number of row names (", rows, ").")
+    }
+  }
+  
+  row.descriptions <- gct$row.descriptions
+  if(is.null(row.descriptions)) {
+    row.descriptions <- ''
+  }
+  m <- cbind(row.names(gct$data), row.descriptions, gct$data)
+  f <- file(filename, "w")
+  on.exit(close(f))
+  
+  cat("#1.2", "\n", file=f, append=TRUE, sep="")
+  cat(rows, "\t", columns, "\n", file=f, append=TRUE, sep="")
+  cat("Name", "\t", file=f, append=TRUE, sep="")
+  cat("Description", file=f, append=TRUE, sep="")
+  names <- colnames(gct$data)
+  
+  for(j in 1:length(names)) {
+    cat("\t", names[j], file=f, append=TRUE, sep="")
+  }
+  
+  cat("\n", file=f, append=TRUE, sep="")
+  write.table(m, file=f, append=TRUE, quote=FALSE, sep="\t", eol="\n", col.names=FALSE, row.names=FALSE)
+  return(filename)
+}
+
+write.factor.to.cls <- function(factor, filename) {
+  # writes a factor to a cls file
+  #
+  # shamelessly ripped off of:
+  # https://github.com/genepattern/DESeq2/blob/abac851160ed1f84af2aa06f85b497c4b144656e/src/common.R
+  # in order to generate the .cls file needed for GSEA
+  # modifications: removed check.file.extension functionality.
+  
+  file <- file(filename, "w")
+  on.exit(close(file))
+  codes <- unclass(factor)
+  cat(file=file, length(codes), length(levels(factor)), "1\n")
+  
+  levels <- levels(factor)
+  
+  cat(file=file, "# ")
+  num.levels <- length(levels)
+  
+  if(num.levels-1 != 0)
+  {
+    for(i in 1:(num.levels-1))
+    {
+      cat(file=file, levels[i])
+      cat(file=file, " ")
+    }
+  }
+  cat(file=file, levels[num.levels])
+  cat(file=file, "\n")
+  
+  num.samples <- length(codes)
+  if(num.samples-1 != 0)
+  {
+    for(i in 1:(num.samples-1))
+    {
+      cat(file=file, codes[i]-1)
+      cat(file=file, " ")
+    }
+  }
+  
+  cat(file=file, codes[num.samples]-1)
+  return(filename) 
+}
+
+get.conversion.map <- function( raw.counts.data, biomart="ensembl", dataset="hsapiens_gene_ensembl",
+                                BMattributes=c('ensembl_gene_id','external_gene_name'),
+                                BMfilters='ensembl_gene_id',
+                                str_replace_pattern=".[0-9]+$",
+                                str_replace_replacement=""){
+  mart <- useMart(
+    biomart=biomart,
+    dataset=dataset
+  )
+  x.to.y.map <- getBM(
+    attributes=BMattributes,
+    filters=BMfilters,
+    values=str_replace(
+      rownames(raw.counts.data$raw.data),
+      pattern=str_replace_pattern,
+      replacement=str_replace_replacement
+    ),
+    mart=mart
+  )
+  rownames(x.to.y.map) <- x.to.y.map$ensembl_gene_id
+  x.to.y.map<-subset(x.to.y.map, select=('external_gene_name'))
+  return(x.to.y.map)
+}
+
+save.spreadsheet <- function( DESeq2.results, edgeR.results, 
+                              raw.counts.data, contrasts, 
+                              symbol.to.id.map, fdr,
+                              file_prefix, mainDir, subDir, 
+                              saveoutput=TRUE){
+  if(dir.exists(file.path(mainDir, subDir))) {
+    print(
+      paste0(
+        "Directory\n",
+        file.path(mainDir, subDir),
+        "\nalready exists.\n",
+        "Please change your output directory name"
+      )
+    )
+    return()
+  }
+  
+  all.dataframes <- list()
+  for (contrast.name in colnames(contrasts)) {
+    contrast.conditions <- strsplit(contrast.name, "-")[[1]]
+    relevant.columns <- lapply(contrast.conditions, grepl, colnames(raw.counts.data$raw.data))
+    relevant.columns.mask <- sapply(transpose(relevant.columns), any) # column-wise OR
+    relevant.columns <- colnames(raw.counts.data$raw.data)[relevant.columns.mask] # from indices to names
+    
+    
+    relevant.raw.data <- raw.counts.data$raw.data[relevant.columns]
+    
+    relevant.DESeq2.normalized.data <- counts(DESeq2.results$DGE_obj, normalized=TRUE)[relevant.columns.mask]
+    
+    relevant.edger.normalized.data <- t(
+      t(edgeR.results$DGE_obj$pseudo.counts)*(edgeR.results$DGE_obj$samples$norm.factors)
+    )[relevant.columns.mask]
+    
+    relevant.DESeq2.results <- DESeq2.results[[contrast.name]][['IF.results']]
+    relevant.DESeq2.metadata <- DESeq2.results[[contrast.name]][['IF.metadata']]
+    
+    relevant.edger.results <- edgeR.results[[contrast.name]][['IF.results']]
+    relevant.edger.metadata <- edgeR.results[[contrast.name]][['IF.metadata']]
+    
+    all_results <- list(
+      relevant.raw.data,
+      relevant.DESeq2.normalized.data,
+      relevant.edger.normalized.data,
+      relevant.DESeq2.results,
+      relevant.edger.results
+    )
+    
+    for(i in 1:length(all_results)){
+      all_results[[i]]$ROWNAMES  <- rownames(all_results[[i]])
+    }
+    
+    all_results <- join_all(all_results, by="ROWNAMES", type="full")
+    
+    # make a column that will (eventually) store Gene Symbols
+    all_results["ID1"] <- all_results["ROWNAMES"]
+    all_results["ID2"] <- all_results["ROWNAMES"]
+    
+    # re-order columns s.t. ID and ROWNAMES is the first two columns and the other columns' order
+    # doesn't change
+    all_results <- all_results %>% dplyr::select(ID1, ID2, ROWNAMES, everything())
+    
+    # trim the Ensembl IDs in the ROWNAMES column to remove the .[0-9]+$
+    # as this would prevent conversion to gene symbols:
+    # see : https://www.biostars.org/p/302441/
+    all_results$ID2 <- str_replace(all_results$ROWNAMES, pattern=".[0-9]+$", replacement = "")
+    all_results$ROWNAMES <- symbol.to.id.map[all_results$ID2,]
+    
+    colnames(all_results)[1] <- "Ensembl ID"
+    colnames(all_results)[2] <- "Version-less Ensembl ID"
+    colnames(all_results)[3] <- "external_gene_name"
+    
+    all.dataframes[[contrast.name]] <- all_results
+    
+    if(saveoutput) {
+      # needs sanity-checks!
+      output.file.name<-paste0(
+        "DGEA_results_",
+        file_prefix,
+        "_",
+        contrast.name,
+        "_fdr_",
+        fdr,
+        ".tsv"
+      )
+      
+      output.file.path <- file.path(
+        mainDir,
+        subDir,
+        output.file.name
+      )
+      
+      if(file.exists(output.file.path)) {
+        print(
+          paste0(
+            "File\n",
+            output.file.path,
+            "\nalready exists.\n",
+            "Please change your output directory name"
+          )
+        )
+        return()
+      }
+      
+      
+      write.table(
+        all_results, 
+        output.file.path, 
+        quote=FALSE, 
+        sep='\t', 
+        row.names=FALSE
+      )
+      
+      output.metadata<-paste0(
+        "#metadata",
+        "\n#alpha/fdr: ", fdr, 
+        "\n#chosen filter: ", chosen_filter, 
+        "\n#input file: ", counts.matrix.filepath, 
+        "\n#date: ", date(),
+        "\n#DESeq2 version: ", packageVersion("DESeq2"),
+        "\n#edgeR version: ", packageVersion("edgeR"),
+        "\n#biomaRt version: ", packageVersion("biomaRt"),
+        sep=""
+      )
+      
+      write(
+        output.metadata[1], 
+        output.file.path, 
+        append=TRUE
+      )
+      
+      print(
+        paste0(
+          "saved results for ", 
+          contrast.name, 
+          " in:\n", 
+          output.file.path
+        )
+      )
+    }
+    
+  }
+}
+
+
+### end of file_io.R ###
+
+
+## start of dge_analysis.R ##
+library(data.table)
+#library(circlize)
+#library(mixOmics)
+library(HTSFilter)
+library(tidyr)
+library(plyr)
+library(genefilter)
+library(edgeR)
+library(limma)
+library(Glimma)
+library(DESeq2)
+
+
+
+edgeR_DGE_analysis <- function( DGE_obj, design, alpha, coef=NULL, contrasts=NULL,
+                                useLRT=FALSE, useQLF=FALSE, useEXACT=TRUE,
+                                plotRejCurve=TRUE, filtering.methods=NA, quantiles=NA, 
+                                pAdjustMethod="BH", verbose=TRUE, chosen_filter=NA) {
+  DGE_obj <- calcNormFactors(DGE_obj)
+  DGE_obj <- estimateCommonDisp(DGE_obj)
+  DGE_obj <- estimateTagwiseDisp(DGE_obj)
+  DGE_obj <- estimateGLMCommonDisp(DGE_obj, design)
+  DGE_obj <- estimateGLMTrendedDisp(DGE_obj, design)
+  DGE_obj <- estimateGLMTagwiseDisp(DGE_obj, design)
+  contrastwise.output.list <- list()
+  contrastwise.output.list[['DGE_obj']] <- DGE_obj
+  for(i in 1:dim(contrasts)[2]) {
+    edger.result <- edgeR_DGE(
+      DGE_obj, design, contrast=contrasts[,i], 
+      useLRT=FALSE, useQLF=FALSE, useEXACT=useEXACT
+    )
+    contrast.name <- colnames(contrasts)[i]
+    if(verbose){print(contrast.name)}
+    
+    # save a copy of the edger results obtained without any filtering
+    contrastwise.output.list[[contrast.name]] <- list(
+      "naive.edgeR.results"=edger.result
+    )
+    
+    # preparation for independent filtering
+    edger.results.copy <- edger.result$edgeR.exactTest
+    edger.results.copy$unadjPvalues <- edger.result$edgeR.exactTest$table$PValue
+    edger.results.copy$counts <- DGE_obj$counts
+    title <- paste0(
+      "edgeR(", 
+      contrast.name, 
+      ") rejection curve (alpha=",
+      alpha,
+      ")"
+    )
+    
+    edger.exactTest.IF.results <- independent_filtering(
+      edger.results.copy,
+      filtering.methods,
+      theta=quantiles,
+      fdr=alpha,
+      showplots=plotRejCurve,
+      fromtool='edger',
+      title=title
+    )
+
+    # save a copy of the independent filtering results
+    contrastwise.output.list[[contrast.name]][["IF.metadata"]] <- edger.exactTest.IF.results
+    
+    
+    if(!is.na(chosen_filter)){
+      # get indices of genes whose raw read counts are greater than the chosen filter
+      edgeR.exactTest.genes.passes_filter <- edger.exactTest.IF.results$filtering.methods[chosen_filter] > edger.exactTest.IF.results$relevant.threshold.per.method[chosen_filter]
+      
+      # run topTags only on genes whose raw read counts are greater than the chosen filter
+      edgeR.exactTest.topTags <- topTags(
+        edger.result$edgeR.exactTest[ edgeR.exactTest.genes.passes_filter, ], 
+        n = sum(edgeR.exactTest.genes.passes_filter),
+        adjust.method="BH"
+      )
+      
+      colnames(edgeR.exactTest.topTags$table) <- paste(
+        "edgeR.exactTest", 
+        colnames(edgeR.exactTest.topTags$table), 
+        sep = "_"
+      )
+      
+      edgeR.exactTest.topTags=as.data.frame(
+        edgeR.exactTest.topTags, 
+        row.names=rownames(edgeR.exactTest.topTags$table)
+      )
+      
+      contrastwise.output.list[[contrast.name]][["IF.results"]] <- edgeR.exactTest.topTags
+      
+    }
+    
+    
+  }
+  return(contrastwise.output.list)
+}
+
+edgeR_DGE <- function(DGE_obj, design, coef=NULL, contrast=NULL,
+                      useLRT=FALSE, useQLF=FALSE, useEXACT=TRUE) {
+  # Wrapper function to run any of edgeR's three tests: exactTest, glmLRt, and glmQLFTest.
+  #
+  # PARAMETERS:
+  #
+  #   DGE_obj:  DGEList object on which to perform the statistical tests.
+  #             see DGEList in the edgeR package
+  #
+  #   design:   design matrix to pass onto edgeR's GLM models.
+  #             see ?model.matrix
+  #
+  #   coef, contrasts:  optional integer/character index vector (coef) and 
+  #                     numeric vector/matrix (contrast) to pass onto edgeR's GLM tests.
+  #                     default to NULL as per edgeR's defaults.
+  #   useLRT, useQLF, useExact:   booleans indicating which tests to run.
+  #
+  # RETURNS:
+  #
+  #   list("edgeR.exactTest" = edgeR.y.exact, "edgeR.glm.lrt" = edgeR.y.glm.lrt, "edgeR.glm.qlf" = edgeR.y.glm.qlf)
+  #
+  #     where each item is either the object resulting from running that test, or NULL if that test was
+  #     specified not to be run.
+  #
+  # TODO:
+  #   passing more kwargs to the edgeR functions?
+  
+  if(!any(useEXACT, useLRT, useQLF)) {
+    stop("at least one of `useEXACT`, `useLRT`, or `useQLF` must be TRUE")
+  }
+  
+  if(useLRT){
+    edgeR.y.glm.lrt <- glmFit(DGE_obj, design)
+    if(is.null(coef)) coef=edgeR.y.glm.lrt$design
+    edgeR.y.glm.lrt <- glmLRT(edgeR.y.glm.lrt, coef=coef, contrast=contrast)
+  } else {
+    edgeR.y.glm.lrt <- NULL
+  }
+  if(useEXACT) {
+    edgeR.y.exact <- exactTest(DGE_obj, pair=names(contrast)[contrast!=0])  
+  } else {
+    edgeR.y.exact <- NULL
+  }
+  if(useQLF) {
+    edgeR.y.glm.qlf <- glmQLFit(DGE_obj, design)
+    if(is.null(coef)) coef=edgeR.y.glm.qlf$design
+    edgeR.y.glm.qlf <- glmQLFTest(edgeR.y.glm.qlf, coef=coef, contrast=contrast)
+  } else {
+    edgeR.y.glm.qlf <- NULL
+  }
+  
+  list_to_return = list( "edgeR.exactTest" = edgeR.y.exact, 
+                         "edgeR.glm.lrt" = edgeR.y.glm.lrt, 
+                         "edgeR.glm.qlf" = edgeR.y.glm.qlf)
+  
+  return(list_to_return)
+}
+
+DESeq2_DGE_analysis <- function(DESeq2_dataset, alpha, contrasts, 
+                                plotRejCurve=TRUE, filtering.methods=NA, quantiles=NA, 
+                                chosen_filter=NA,pAdjustMethod="BH", verbose=FALSE) {
+  #
+  #
+  # PARAMETERS:
+  #
+  #   DESeq2_dataset:  DESeqDataSet object on which to perform the statistical tests.
+  #                   see `DESeqDataSet`` in the DESeq2 package.
+  #
+  #   alpha:  statistical significance threshold cutoff used to optimize the independent filtering.
+  #           see `results`` from DESeq2 package.
+  #
+  #   pAdjustMethod: string indicating method to use in the p-value adjustment method.
+  #                   see ?p.adjust for valid values.
+  #                   defaults to "BH".
+  #
+  # RETURNS:
+  #   
+  #   result of DESeq2 analysis
+  #
+  # TODO:
+  #   passing more kwargs to the DESeq2 functions
+  
+  DESeq2_dataset <- estimateSizeFactors(DESeq2_dataset)
+  DESeq2.out <- DESeq(DESeq2_dataset)
+  
+  if(is.na(filtering.methods)) {
+    filtering.methods <- data.frame(
+      'mean'= rowMeans(counts(DESeq2_dataset, normalized=TRUE))
+    )
+  }
+  
+  #contrastwise.standard.DESeq2.results <- list()
+  #contrastwise.IF.DESeq2.results <- list()
+  contrastwise.output.list <- list()
+  contrastwise.output.list[["DGE_obj"]] <- DESeq2.out
+  
+  for (contrast.name in colnames(contrasts)){
+    contrast.conditions <- strsplit(contrast.name, "-")[[1]]
+    if(verbose){print(contrast.name)}
+    
+    deseq2.result <- results(
+      DESeq2.out, 
+      contrast=c("condition", contrast.conditions[1], contrast.conditions[2]),
+      alpha=alpha,
+      pAdjustMethod=pAdjustMethod
+    )
+    #contrastwise.standard.DESeq2.results[[contrast.name]] <- deseq2.result
+    contrastwise.output.list[[contrast.name]] <- list(
+      "standard.DESeq2.results"=deseq2.result
+    )
+    
+    if(plotRejCurve) {
+      plottitle <- paste0(
+        "DESeq2(", 
+        contrast.name, 
+        ") rejection curve (alpha=",
+        alpha,
+        ")\n#rej=",
+        sum(deseq2.result['padj'][[1]] < fdr, na.rm=TRUE),
+        ", threshold=",
+        round(metadata(deseq2.result)$filterThreshold,2)
+      )
+      
+      plot(
+        metadata(deseq2.result)$filterNumRej, 
+        type="b", 
+        ylab="number of rejections",
+        xlab="quantiles of filter", 
+        main=plottitle
+      )
+      lines(
+        metadata(deseq2.result)$lo.fit, 
+        col="red"
+      )
+      abline(v=metadata(deseq2.result)$filterTheta)
+    }
+    
+    if(!any(is.na(filtering.methods), is.na(quantiles))){
+      title <- paste0(
+        "DESeq2(", 
+        contrast.name, 
+        ") rejection curve (alpha=",
+        alpha,
+        ")\n#rej=",
+        sum(deseq2.result['padj'][[1]] < fdr, na.rm=TRUE),
+        ", threshold=",
+        round(metadata(deseq2.result)$filterThreshold,2)
+      )
+      contrast.result.copy <- deseq2.result
+      contrast.result.copy$unadjPvalues <- deseq2.result$pvalue
+      IF.DESeq2.results <- independent_filtering(
+        contrast.result.copy,
+        filtering.methods,
+        theta=quantiles,
+        title=title,
+        fdr=fdr,
+        showplots=plotRejCurve,
+        fromtool="deseq"
+      )
+      #contrastwise.IF.DESeq2.results[[contrast.name]] <- IF.DESeq2.results
+      # save a copy of the independent filtering results
+      contrastwise.output.list[[contrast.name]][["IF.metadata"]] <- IF.DESeq2.results
+      
+      ##
+      if(!is.na(chosen_filter)){
+        contrastwise.output.list[[contrast.name]][["IF.results"]] <- results(
+          DESeq2.out, 
+          contrast=c("condition", contrast.conditions[1], contrast.conditions[2]),
+          alpha=alpha,
+          pAdjustMethod=pAdjustMethod,
+          filter=filtering.methods[[chosen_filter]]
+        )
+        
+      }
+      
+      ##
+      
+    }
+    
+    
+  }
+  #return(list(contrastwise.standard.DESeq2.results, contrastwise.IF.DESeq2.results))
+  return(contrastwise.output.list)
+}
+
+design.pairs <- function(levels) {
+  # credits to G. Smyth
+  # https://support.bioconductor.org/p/9228/#9254
+  n <- length(levels)
+  design <- matrix(0,n,choose(n,2))
+  rownames(design) <- levels
+  colnames(design) <- 1:choose(n,2)
+  k <- 0
+  for (i in 1:(n-1))
+    for (j in (i+1):n) {
+      k <- k+1
+      design[i,k] <- 1
+      design[j,k] <- -1
+      colnames(design)[k] <- paste(levels[i],"-",levels[j],sep="")
+    }
+  return(design)
+}
+
+independent_filtering <- function(dge_obj.with.pvalues, 
+                                  filtering.methods.dataframe,
+                                  theta=NA, fdr=0.05, 
+                                  showplots=TRUE, p.adjust_method="BH", 
+                                  title="Filtering Methods' Rejection Curves",
+                                  fromtool=NA) {
+  #
+  # Wrapper function to recreate DESeq2's independent filtering code.
+  #
+  # PARAMETERS:
+  #
+  #   dge_obj.with.pvalues: DGEList object along with a unadjPvalues field.
+  #
+  #   filtering.methods.dataframe:  dataframe containing the methods to assess in the independent filtering.
+  #                                 e.g.:
+  #                                    filtering.methods <- data.frame(
+  #                                      'mean' = rowMeans(dge_obj$counts),
+  #                                      'min' = rowMin(dge_obj$counts),
+  #                                      'max' = rowMax(dge_obj$counts),
+  #                                      'median' = rowMedians(dge_obj$counts),
+  #                                      'secondlargest' = apply(
+  #                                        dge_obj$counts,
+  #                                        1,
+  #                                        function(row) sort(row,partial=length(row)-1)[length(row)-1]
+  #                                      )
+  #                                    )
+  #
+  #   theta: sequence ranging from [0.0, 1.0) indicating which quantiles to consider dropping.
+  #                   defaults to [0.4, 0.95] by increments of 0.01
+  #
+  #   fdr:  value for the fdr threshold.
+  #         defaults to 0.05. 
+  #   
+  #   showplots:  boolean indicating whether to display plots or not.
+  #               defaults to TRUE.
+  #
+  #   p.adjust_method:  multiple-hypothesis p-value adjustment method.
+  #                     gets passed onto filtered_R, see `genefilter` package.
+  #                     defaults to "BH".
+  #
+  # RETURNS:
+  #   
+  #   list of "rejections" and "best.numRej.per.Method"
+  #
+  # REFERENCE:
+  #   https://bioconductor.org/packages/release/bioc/vignettes/genefilter/inst/doc/independent_filtering.pdf
+  
+  if(is.na(theta)) {
+    theta <- seq(from=0.4, to=0.95, by=0.01)
+  }
+  
+  stopifnot(!is.na(fromtool) | !((tolower(fromtool) != "deseq") & (tolower(fromtool) != "edger")) )
+  
+  if(is.na(filtering.methods.dataframe)) {
+    
+    if(tolower(fromtool) == "deseq") {
+      filtering.methods.dataframe <- data.frame(
+        'mean'=rowMeans(counts(dge_obj.with.pvalues, normalized=TRUE))
+      )
+    }
+    
+    else {
+      filtering.methods.dataframe <- data.frame(
+        'mean'=rowMeans(dge_obj.with.pvalues$counts)
+      )
+    }    
+  }
+  
+  rejections <- sapply(
+    filtering.methods.dataframe,
+    function(f) filtered_R(
+      alpha=fdr, filter=f, 
+      test=dge_obj.with.pvalues$unadjPvalues, 
+      theta=theta, method=p.adjust_method
+    )
+  )
+  
+  best.numRej.per.method <- apply(rejections, 2, max, na.rm = TRUE)
+  #relevant.quantile.per.method <- numeric(length(filtering.methods.dataframe))
+  #relevant.threshold.per.method <- numeric(length(filtering.methods.dataframe))
+  relevant.quantile.per.method <- list()
+  relevant.threshold.per.method <- list()
+  for(i in 1:length(filtering.methods.dataframe)) {
+    # i-th element of `u1` squared into `i`-th position of `usq`
+    q = theta[ which(rejections[,i] == max(rejections[,i])) ][1]
+    # the extra [1] is to get the lowest quantile that yielded the max number of rejections
+    # to filter out fewer genes
+    filter_name <- colnames(filtering.methods.dataframe)[i]
+    relevant.quantile.per.method[filter_name] = q
+    relevant.column <- filtering.methods.dataframe[,filter_name]
+    relevant.threshold.per.method[filter_name] = quantile(relevant.column,q)
+    
+  }
+  if(showplots==TRUE) {
+    colors=brewer.pal(ncol(filtering.methods.dataframe), "Set1")
+    matplot(theta, rejections, type='l', lty=1, col=colors, 
+            lwd=2, xlab=expression(theta), ylab="Rejections", 
+            main=title)
+    legend("bottomleft", legend=colnames(filtering.methods.dataframe), fill=colors)
+  }
+  #print(rejections)
+  #print(relevant.quantile.per.method)
+  #print(relevant.threshold.per.method)
+  return.list <- list(
+    "rejections" = rejections, 
+    "best.numRej.per.method" = best.numRej.per.method,
+    "relevant.quantile.per.method" = relevant.quantile.per.method,
+    "relevant.threshold.per.method" = relevant.threshold.per.method,
+    "filtering.methods" = filtering.methods.dataframe
+  )
+  return(return.list)
+  
+}
+
+### end of dge_analysis.R ###
+
+
+## start of visualization.R ##
+library(dplyr)
+library(tidyr)
+library(reshape2)
+library(factoextra)
+library(RColorBrewer)
+library(pheatmap)
+
+plotLog1PReadCountsDistribution <- function(raw_reads_dataframe, 
+                                            histogram=TRUE, boxplot=TRUE,
+                                            verbose=FALSE){
+  #
+  conditions <- sub(
+    "\\_.*", "",
+    colnames(raw_reads_dataframe)
+  )
+  if(verbose){
+    print("Inferred following conditions from filtered count matrix:\n")
+    print(conditions)
+  }
+  colors = c(1:length(unique(conditions)))
+  
+  if(histogram) {
+    readcounts.histogram <- ggplot(gather(as.data.frame(log1p(raw_reads_dataframe))), aes(value)) + 
+      geom_histogram(binwidth = 1) + 
+      facet_wrap(~key) +
+      labs(x = "ln(1 + raw reads mapped to genes)")
+    print(readcounts.histogram)
+  }
+  
+  if(boxplot) {
+    readcounts.boxplot <- ggplot(
+      data = reshape2::melt(as.data.frame(log1p(raw_reads_dataframe))), aes( x=variable, y=value)) + 
+      geom_boxplot(aes(fill=variable)) +
+      theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+      labs(y = "ln(1 + raw reads mapped to genes)", x = "sample")
+    print(readcounts.boxplot)
+  }
+}
+
+plotPheatMap <- function(data_obj, fromtool=NA){
+  stopifnot(!is.na(fromtool))
+  if (tolower(fromtool) == "edger") {
+    sample.counts <- data_obj$counts
+    sample.names <- colnames(data_obj)
+  } else if (tolower(fromtool) == "deseq") {
+    sample.counts <- counts(data_obj)
+    sample.names <- colnames(data_obj)
+  } else {
+    print("plotPheatMap's `fromtool` keyword argument should be 'edger' or 'deseq'")
+    return(NA)
+  }
+  sample.dists <- cor(sample.counts, method = c("pearson"))
+  # round to integer
+  sample.dists.vals <- round(sample.dists, digits=3)
+  # remove NAs
+  sample.dists.vals[ is.na(sample.dists.vals) ] <- ""
+  rownames(sample.dists) <- sample.names
+  colnames(sample.dists) <- sample.names
+  colors <- colorRampPalette( brewer.pal(9, "Blues") )(255)
+  pm <- pheatmap(sample.dists,
+                 col=colors,
+                 main="PheatMap\n(sample correlation)",
+                 display_numbers = sample.dists.vals
+  )
+  print(pm)
+}
+
+plotScree <- function(prcomp.obj){
+  p <- fviz_eig(prcomp.obj)
+  print(p)
+}
+
+plotPC1vsPC2 <- function(prcomp.obj, normalized.data,
+                         repel=TRUE){
+  p <- fviz_pca_ind(
+    prcomp.obj, 
+    #label=label, 
+    habillage=normalized.data$condition,
+    #geom=geom, 
+    repel=repel,
+    title="PC1 vs PC2\n(Large markers are centroids)"
+  )
+  print(p)
+}
+
+plotRejectionCurve <- function(filtering.methods, rejections, theta){
+  # 
+  colors = brewer.pal(ncol(filtering.methods), "Set1")
+  matplot(theta, rejections, type='l', lty=1, col=colors, 
+          lwd=2, xlab=expression(theta), ylab="Rejections", 
+          main=title)
+  legend("bottomleft", legend=colnames(filtering.methods), fill=colors)
+}
+### end of visualization.R ###
+

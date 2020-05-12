@@ -1,0 +1,107 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+source("C:/Users/Samy/Dropbox/Samy_Dropbox/MSc/lncRNA_HOTAIRM1_Project_Dostie/jdostie-rnaseq/Qiagen/primary_analyses/QIAseqUltraplexRNA_90846/secondary_analysis/DGEA_modularized/R_code/all_code.R")
+```
+
+```{r}
+counts.matrix.filepath <- "C://Users//Samy//Dropbox//Samy_Dropbox//MSc//lncRNA_HOTAIRM1_Project_Dostie//jdostie-rnaseq//Qiagen//primary_analyses//QIAseqUltraplexRNA_90846//primary_analysis//QIAseqUltraplexRNA_90846_relabelled_alphaordered.csv"
+
+keep_columns <- c(
+  #"EtOH_RepA",  
+  #"NT_RepA",
+  #"NT_RepB",
+  #"NT_RepC",
+  #"RA_RepA",
+  "RA_RepB",
+  "RA_RepC",
+  "siGFP_RepA",
+  "siGFP_RepB",
+  "siGFP_RepC",
+  "siM1_RepA",
+  "siM1_RepB",
+  "siM1_RepC",
+  "siNC_RepA",
+  "siNC_RepB",
+  "siNC_RepC"
+)
+
+fdr <- 0.1
+
+# This section contains parameters used when plotting the rejection curves obtained by repeating DESeq2's independent filtering method with a variety of user-defined filtering criteria (filtering functions)
+quantiles <- seq(from=0.1, to=0.95, by=0.01)
+```
+
+```{r}
+raw.counts.data <- rawCountsMatrix_to_dataframe(
+  counts.matrix.filepath,
+  keep_columns=keep_columns,
+  make_histogram=TRUE, make_boxplot=TRUE,
+  make_ensembl_to_symbol = FALSE,
+  sep = ',',
+  verbose=TRUE
+)
+
+sample.data <- data.frame(
+  condition=raw.counts.data$conditions,
+  row.names=colnames(raw.counts.data$raw.data)
+)
+
+colnames(sample.data) <- c("condition")
+
+contrasts <- design.pairs(unique(sample.data$condition))
+```
+
+```{r}
+dds <- DESeqDataSetFromMatrix(
+  countData = raw.counts.data$raw.data,
+  colData = sample.data,
+  design = ~ condition
+)
+```
+
+```{r}
+plotPheatMap(dds, fromtool="deseq")
+```
+
+```{r}
+rld <- rlog(dds, blind=TRUE)
+prcomp.output <- prcomp(t(assay(rld)))
+plotScree(prcomp.output)
+plotPC1vsPC2(prcomp.output, dds)
+```
+
+```{r}
+DESeq2.results <- DESeq2_DGE_analysis( dds, fdr, contrasts, quantiles=quantiles, verbose = FALSE, chosen_filter="mean")
+```
+
+```{r}
+dge_obj <- DGEList(
+  counts=raw.counts.data$raw.data,
+  group=raw.counts.data$conditions
+)
+design <- model.matrix(~0+sample.data$condition)
+rownames(design) <- row.names(sample.data)
+colnames(design) <- gsub("sample.data.condition","",colnames(design))
+```
+
+```{r}
+edgeR.results <- edgeR_DGE_analysis(dge_obj, design, fdr, contrasts = contrasts, verbose=FALSE, chosen_filter="mean")
+```
+
+```{r}
+# see https://www.biostars.org/p/317701/#317704
+prcomp.output <- prcomp(t(
+   t(t(edgeR.results$DGE_obj$pseudo.counts)*(edgeR.results$DGE_obj$samples$norm.factors))
+))
+plotScree(prcomp.output)
+plotPC1vsPC2(prcomp.output, dds)
+```
+
+```{r}
+symbol.to.id.map <- get.conversion.map(raw.counts.data)
+```
+

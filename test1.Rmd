@@ -79,6 +79,13 @@ DESeq2.results <- DESeq2_DGE_analysis( dds, fdr, contrasts, quantiles=quantiles,
 ```
 
 ```{r}
+DESeq2.normalized.data <- as.data.frame(counts(DESeq2.results$DGE_obj, normalized=TRUE))
+prcomp.output <- prcomp(t(DESeq2.normalized.data))
+plotScree(prcomp.output)
+plotPC1vsPC2(prcomp.output, dds)
+```
+
+```{r}
 dge_obj <- DGEList(
   counts=raw.counts.data$raw.data,
   group=raw.counts.data$conditions
@@ -103,5 +110,17 @@ plotPC1vsPC2(prcomp.output, dds)
 
 ```{r}
 symbol.to.id.map <- get.conversion.map(raw.counts.data)
+```
+
+```{r}
+save.spreadsheet( DESeq2.results, edgeR.results, 
+                  raw.counts.data, contrasts, 
+                  symbol.to.id.map, fdr,
+                  "All_RAi_except_RAsA", getwd(), "All_RAi_except_RAsA", 
+                  saveoutput=TRUE)
+```
+
+```{r}
+# Additional pathway analysis stuff would go here
 ```
 

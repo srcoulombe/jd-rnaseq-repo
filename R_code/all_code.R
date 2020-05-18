@@ -406,7 +406,7 @@ save.spreadsheet <- function( DESeq2.results, edgeR.results,
   all.dataframes <- list()
   for (contrast.name in colnames(contrasts)) {
     contrast.conditions <- strsplit(contrast.name, "-")[[1]]
-    print(contrast.conditions)
+
     relevant.columns <- lapply(contrast.conditions, grepl, colnames(raw.counts.data$raw.data))
     relevant.columns.mask <- sapply(transpose(relevant.columns), any) # column-wise OR
     relevant.columns <- colnames(raw.counts.data$raw.data)[relevant.columns.mask] # from indices to names
@@ -562,6 +562,11 @@ edgeR_DGE_analysis <- function( DGE_obj, design, alpha, coef=NULL, contrasts=NUL
                                 useLRT=FALSE, useQLF=FALSE, useEXACT=TRUE,
                                 plotRejCurve=TRUE, filtering.methods=NA, quantiles=NA, 
                                 pAdjustMethod="BH", verbose=TRUE, chosen_filter=NA) {
+  
+  if(is.na(quantiles)) {
+    quantiles <- seq(from=0.4, to=0.95, by=0.01)
+  }
+  
   DGE_obj <- calcNormFactors(DGE_obj)
   DGE_obj <- estimateCommonDisp(DGE_obj)
   DGE_obj <- estimateTagwiseDisp(DGE_obj)
@@ -700,7 +705,7 @@ edgeR_DGE <- function(DGE_obj, design, coef=NULL, contrast=NULL,
 
 DESeq2_DGE_analysis <- function(DESeq2_dataset, alpha, contrasts, 
                                 plotRejCurve=TRUE, filtering.methods=NA, quantiles=NA, 
-                                chosen_filter=NA,pAdjustMethod="BH", verbose=FALSE) {
+                                chosen_filter=NA, pAdjustMethod="BH", verbose=FALSE) {
   #
   #
   # PARAMETERS:
@@ -729,6 +734,10 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset, alpha, contrasts,
     filtering.methods <- data.frame(
       'mean'= rowMeans(counts(DESeq2_dataset, normalized=TRUE))
     )
+  }
+
+  if(is.na(quantiles)) {
+    quantiles <- seq(from=0.4, to=0.95, by=0.01)
   }
   
   #contrastwise.standard.DESeq2.results <- list()

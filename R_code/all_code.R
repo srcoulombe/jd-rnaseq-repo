@@ -49,7 +49,7 @@ package.check <- lapply(
   CRAN_dependencies,
   FUN = function(x) {
     if (!require(x, character.only = TRUE)) {
-      install.packages(x, dependencies = TRUE)
+      install.packages(x, dependencies = TRUE, quiet = TRUE)
       library(x, character.only = TRUE)
     }
   }

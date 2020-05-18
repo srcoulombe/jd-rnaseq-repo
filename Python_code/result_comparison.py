@@ -12,14 +12,22 @@ try:
     import matplotlib.pyplot as plt 
 except ModuleNotFoundError:
     print("Installing maptlotlib with pip...")
-    pip.main(['install', '--user', 'matplotlib'])
+    pip_version = list(map(int, pip.__version__.split(".")))
+    if pip_version[0] < 20:
+        os.system('pip install matplotlib')
+    else:
+        pip.main(['install', '--user', 'matplotlib'])
     import matplotlib.pyplot as plt 
 
 try:
     from supervenn import supervenn
 except ModuleNotFoundError:
     print("Installing supervenn with pip...")
-    pip.main(['install', '--user', 'supervenn'])
+    pip_version = list(map(int, pip.__version__.split(".")))
+    if pip_version[0] < 20:
+        os.system('pip install supervenn')
+    else:
+        pip.main(['install', '--user', 'supervenn'])
     from supervenn import supervenn
 
 # TODO: 1. add a filename filter for load_files_from_dir

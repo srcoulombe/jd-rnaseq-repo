@@ -33,11 +33,9 @@ except ModuleNotFoundError:
 try:
     import goenrich
 except ModuleNotFoundError:
-    print("Installing goenrich with pip...")
-    if pip_version[0] < 20:
-        os.system('pip install goenrich')
-    else:
-        pip.main(['install', '--user', 'goenrich'])
+    print("Installing goenrich from srcoulombe's repo...")
+    os.system('git clone https://github.com/srcoulombe/goenrich.git')
+    os.system('pip install -e goenrich')
     import goenrich
 
 try:
@@ -69,7 +67,7 @@ def generate_go_tree(obo_file_path:str=None, gaf_file_path:str=None) -> nx.Graph
             os.getcwd(), 
             'go-basic.obo'
         )
-    onto = goenrich_obo.ontology(obo_file_path)
+    onto = goenrich.obo.ontology(obo_file_path)
 
     if gaf_file_path is None:
         gaf_file_path = os.path.join(
@@ -77,13 +75,13 @@ def generate_go_tree(obo_file_path:str=None, gaf_file_path:str=None) -> nx.Graph
             'goa_human.gaf.gz'
         )
         
-    annot = goenrich_read.goa(gaf_file_path)
+    annot = goenrich.read.goa(gaf_file_path)
 
     values = {k: set(v) for k,v in annot.groupby('go_id')['db_object_symbol']}
 
     # propagate the background through the ontology
     background_attribute = 'gene2go'
-    goenrich_enrich.propagate(onto, values, background_attribute)
+    goenrich.enrich.propagate(onto, values, background_attribute)
     return onto
 
 def plot_subgraph(  onto_graph:nx.Graph, node_subset:Union[List[str],Set[str]],

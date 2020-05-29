@@ -22,7 +22,7 @@ Bioc_dependencies = c(
   "Glimma",
   "pheatmap",
   "biomaRt",
-  "regionR",
+  "regioneR",
   "chromoMap",
   "karyoploteR"
 )

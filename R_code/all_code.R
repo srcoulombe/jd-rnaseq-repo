@@ -21,8 +21,12 @@ Bioc_dependencies = c(
   "limma",
   "Glimma",
   "pheatmap",
-  "biomaRt"
+  "biomaRt",
+  "regionR",
+  "chromoMap",
+  "karyoploteR"
 )
+
 
 CRAN_dependencies = c(
   "data.table",
@@ -976,6 +980,9 @@ library(reshape2)
 library(factoextra)
 library(RColorBrewer)
 library(pheatmap)
+library(regioneR)
+library(chromoMap)
+library(karyoploteR) 
 
 plotLog1PReadCountsDistribution <- function(raw_reads_dataframe, 
                                             histogram=TRUE, boxplot=TRUE,
@@ -1062,6 +1069,35 @@ plotRejectionCurve <- function(filtering.methods, rejections, theta){
           lwd=2, xlab=expression(theta), ylab="Rejections", 
           main=title)
   legend("bottomleft", legend=colnames(filtering.methods), fill=colors)
+}
+
+plotChromoMap <- function(DEG_gene_names, reference_file="UCSC_hg38.ncbiRefSeq.tsv") {
+  gene.info <- read.table(
+    reference_file, 
+    stringsAsFactors = FALSE, 
+    sep="\t"
+  )
+  gene.info <- gene.info[!duplicated(gene.info$V6),]
+  condensed.gene.info <- data.frame(gene.info$V2, gene.info$V4, gene.info$V5, gene.info$V6)
+  names(condensed.gene.info) <- c("chr", "start","end","name")
+  genomewide.ranges.for.density <- toGRanges(condensed.gene.info)
+  
+  chromomap.data <- gene.info[ gene.info$V6 %in% DEG_gene_names, ]
+  genes.notin.chromomap <- DEG_gene_names[ !(DEG_gene_names %in% chromomap.data$V6) ]
+  
+  print("Could not include the following genes in the ChromoMap:")
+  print(genes.notin.chromomap)
+  
+  formatted.chromomap.data <- data.frame(chromomap.data$V2,chromomap.data$V4,chromomap.data$V5,chromomap.data$V6)
+  names(formatted.chromomap.data) <- c("chr", "start","end","name")
+  
+  kp <- plotKaryotype(genome="hg38", plot.type=6)
+  kpDataBackground(kp)
+  
+  kpPlotDensity(kp, data=genomewide.ranges.for.density)
+  kpPlotMarkers(kp, data=gr, 
+                labels=gr$name, text.orientation = "horizontal",
+                r1=0.5, cex=0.6, adjust.label.position = TRUE)
 }
 ### end of visualization.R ###
 

@@ -22,7 +22,7 @@ Bioc_dependencies = c(
   "Glimma",
   "pheatmap",
   "biomaRt",
-  "regionR",
+  "regioneR",
   "chromoMap",
   "karyoploteR"
 )
@@ -38,7 +38,7 @@ CRAN_dependencies = c(
   "RColorBrewer"
 )
 
-## Now load or install&load all
+## Now load or install & load all
 package.check <- lapply(
   Bioc_dependencies,
   FUN = function(x) {
@@ -59,17 +59,6 @@ package.check <- lapply(
   }
 )
 
-
-#BiocManager::install("DESeq2")
-##BiocManager::install("mixOmics")
-#BiocManager::install("HTSFilter")
-#BiocManager::install("genefilter")
-#BiocManager::install("edgeR")
-#BiocManager::install("limma")
-#BiocManager::install("Glimma")
-##BiocManager::install("circlize")
-#BiocManager::install("pheatmap")
-#BiocManager::install("biomaRt")
 ### end of installation block ###
 
 
@@ -541,9 +530,6 @@ save.spreadsheet <- function( DESeq2.results, edgeR.results,
   }
 }
 
-
-
-
 ### end of file_io.R ###
 
 
@@ -560,8 +546,6 @@ library(limma)
 library(Glimma)
 library(DESeq2)
 
-
-
 edgeR_DGE_analysis <- function( DGE_obj, design, alpha, coef=NULL, contrasts=NULL,
                                 useLRT=FALSE, useQLF=FALSE, useEXACT=TRUE,
                                 plotRejCurve=TRUE, filtering.methods=NA, quantiles=NA, 
@@ -570,7 +554,17 @@ edgeR_DGE_analysis <- function( DGE_obj, design, alpha, coef=NULL, contrasts=NUL
   if(is.na(quantiles)) {
     quantiles <- seq(from=0.4, to=0.95, by=0.01)
   }
-  
+
+  if(is.na(filtering.methods)) {
+    filtering.methods.dataframe <- data.frame(
+      'mean'=rowMeans(DGE_obj$counts),
+      'min'= rowMin(DGE_obj$counts),
+      'max'= rowMax(DGE_obj$counts),
+      'median'= rowMedians(DGE_obj$counts),
+      'secondlargest'= apply(DGE_obj$counts, 1,  function(row) sort(row, partial=length(row)-1)[length(row)-1])
+    )
+  }
+
   DGE_obj <- calcNormFactors(DGE_obj)
   DGE_obj <- estimateCommonDisp(DGE_obj)
   DGE_obj <- estimateTagwiseDisp(DGE_obj)
@@ -733,10 +727,14 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset, alpha, contrasts,
   
   DESeq2_dataset <- estimateSizeFactors(DESeq2_dataset)
   DESeq2.out <- DESeq(DESeq2_dataset)
-  
-  if(is.na(filtering.methods)) {
-    filtering.methods <- data.frame(
-      'mean'= rowMeans(counts(DESeq2_dataset, normalized=TRUE))
+  DESeq2.out$counts <- assay(DESeq2_dataset)
+  if(is.na(filtering.methods)) { 
+    filtering.methods.dataframe <- data.frame(
+      'mean'=rowMeans(counts(DESeq2.out, normalized=TRUE)),
+      'min'= rowMin(counts(DESeq2.out, normalized=TRUE)),
+      'max'= rowMax(counts(DESeq2.out, normalized=TRUE)),
+      'median'= rowMedians(counts(DESeq2.out, normalized=TRUE)),
+      'secondlargest'= apply(counts(DESeq2.out, normalized=TRUE), 1,  function(row) sort(row, partial=length(row)-1)[length(row)-1])
     )
   }
 
@@ -790,47 +788,47 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset, alpha, contrasts,
       abline(v=metadata(deseq2.result)$filterTheta)
     }
     
-    if(!any(is.na(filtering.methods), is.na(quantiles))){
-      title <- paste0(
-        "DESeq2(", 
-        contrast.name, 
-        ") rejection curve (alpha=",
-        alpha,
-        ")\n#rej=",
-        sum(deseq2.result['padj'][[1]] < fdr, na.rm=TRUE),
-        ", threshold=",
-        round(metadata(deseq2.result)$filterThreshold,2)
+    
+    title <- paste0(
+      "DESeq2(", 
+      contrast.name, 
+      ") rejection curve (alpha=",
+      alpha,
+      ")\n#rej=",
+      sum(deseq2.result['padj'][[1]] < fdr, na.rm=TRUE),
+      ", threshold=",
+      round(metadata(deseq2.result)$filterThreshold,2)
+    )
+    contrast.result.copy <- deseq2.result
+    contrast.result.copy$unadjPvalues <- deseq2.result$pvalue
+    IF.DESeq2.results <- independent_filtering(
+      contrast.result.copy,
+      filtering.methods,
+      theta=quantiles,
+      title=title,
+      fdr=fdr,
+      showplots=FALSE, # still need to work on this functionality
+      fromtool="deseq"
+    )
+    #contrastwise.IF.DESeq2.results[[contrast.name]] <- IF.DESeq2.results
+    # save a copy of the independent filtering results
+    contrastwise.output.list[[contrast.name]][["IF.metadata"]] <- IF.DESeq2.results
+    
+    ##
+    if(!is.na(chosen_filter)){
+      contrastwise.output.list[[contrast.name]][["IF.results"]] <- results(
+        DESeq2.out, 
+        contrast=c("condition", contrast.conditions[1], contrast.conditions[2]),
+        alpha=alpha,
+        pAdjustMethod=pAdjustMethod,
+        filter=filtering.methods[[chosen_filter]]
       )
-      contrast.result.copy <- deseq2.result
-      contrast.result.copy$unadjPvalues <- deseq2.result$pvalue
-      IF.DESeq2.results <- independent_filtering(
-        contrast.result.copy,
-        filtering.methods,
-        theta=quantiles,
-        title=title,
-        fdr=fdr,
-        showplots=plotRejCurve,
-        fromtool="deseq"
-      )
-      #contrastwise.IF.DESeq2.results[[contrast.name]] <- IF.DESeq2.results
-      # save a copy of the independent filtering results
-      contrastwise.output.list[[contrast.name]][["IF.metadata"]] <- IF.DESeq2.results
-      
-      ##
-      if(!is.na(chosen_filter)){
-        contrastwise.output.list[[contrast.name]][["IF.results"]] <- results(
-          DESeq2.out, 
-          contrast=c("condition", contrast.conditions[1], contrast.conditions[2]),
-          alpha=alpha,
-          pAdjustMethod=pAdjustMethod,
-          filter=filtering.methods[[chosen_filter]]
-        )
-        
-      }
-      
-      ##
       
     }
+    
+    ##
+    
+    
     
     
   }
@@ -912,14 +910,23 @@ independent_filtering <- function(dge_obj.with.pvalues,
   if(is.na(filtering.methods.dataframe)) {
     
     if(tolower(fromtool) == "deseq") {
+      print(typeof(dge_obj.with.pvalues[["DGE_obj"]]))
       filtering.methods.dataframe <- data.frame(
-        'mean'=rowMeans(counts(dge_obj.with.pvalues, normalized=TRUE))
+        'mean'=rowMeans(counts(dge_obj.with.pvalues[["DGE_obj"]], normalized=TRUE)),
+        'min'= rowMin(counts(dge_obj.with.pvalues[["DGE_obj"]], normalized=TRUE)),
+        'max'= rowMax(counts(dge_obj.with.pvalues[["DGE_obj"]], normalized=TRUE)),
+        'median'= rowMedians(counts(ddge_obj.with.pvalues[["DGE_obj"]], normalized=TRUE)),
+        'secondlargest'= apply(counts(dge_obj.with.pvalues[["DGE_obj"]], normalized=TRUE), 1,  function(row) sort(row, partial=length(row)-1)[length(row)-1])
       )
     }
-    
+
     else {
       filtering.methods.dataframe <- data.frame(
-        'mean'=rowMeans(dge_obj.with.pvalues$counts)
+        'mean'=rowMeans(dge_obj.with.pvalues$counts),
+        'min'= rowMin(dge_obj.with.pvalues$counts),
+        'max'= rowMax(dge_obj.with.pvalues$counts),
+        'median'= rowMedians(dge_obj.with.pvalues$counts),
+        'secondlargest'= apply(dge_obj.with.pvalues$counts, 1,  function(row) sort(row, partial=length(row)-1)[length(row)-1])
       )
     }    
   }
@@ -1093,7 +1100,7 @@ plotChromoMap <- function(DEG_gene_names, reference_file="UCSC_hg38.ncbiRefSeq.t
   
   kp <- plotKaryotype(genome="hg38", plot.type=6)
   kpDataBackground(kp)
-  
+  gr <- toGRanges(formatted.chromomap.data)
   kpPlotDensity(kp, data=genomewide.ranges.for.density)
   kpPlotMarkers(kp, data=gr, 
                 labels=gr$name, text.orientation = "horizontal",

@@ -563,6 +563,8 @@ edgeR_DGE_analysis <- function( DGE_obj, design, alpha, coef=NULL, contrasts=NUL
       'median'= rowMedians(DGE_obj$counts),
       'secondlargest'= apply(DGE_obj$counts, 1,  function(row) sort(row, partial=length(row)-1)[length(row)-1])
     )
+  } else {
+    filtering.methods.dataframe <- filtering.methods
   }
 
   DGE_obj <- calcNormFactors(DGE_obj)
@@ -600,7 +602,7 @@ edgeR_DGE_analysis <- function( DGE_obj, design, alpha, coef=NULL, contrasts=NUL
     
     edger.exactTest.IF.results <- independent_filtering(
       edger.results.copy,
-      filtering.methods,
+      filtering.methods.dataframe,
       theta=quantiles,
       fdr=alpha,
       showplots=plotRejCurve,
@@ -634,10 +636,8 @@ edgeR_DGE_analysis <- function( DGE_obj, design, alpha, coef=NULL, contrasts=NUL
         row.names=rownames(edgeR.exactTest.topTags$table)
       )
       
-      contrastwise.output.list[[contrast.name]][["IF.results"]] <- edgeR.exactTest.topTags
-      
+      contrastwise.output.list[[contrast.name]][["IF.results"]] <- edgeR.exactTest.topTags  
     }
-    
     
   }
   return(contrastwise.output.list)
@@ -726,16 +726,18 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset, alpha, contrasts,
   #   passing more kwargs to the DESeq2 functions
   
   DESeq2_dataset <- estimateSizeFactors(DESeq2_dataset)
+  DESeq2.out <- DESeq2_dataset
   DESeq2.out <- DESeq(DESeq2_dataset)
-  DESeq2.out$counts <- assay(DESeq2_dataset)
   if(is.na(filtering.methods)) { 
     filtering.methods.dataframe <- data.frame(
-      'mean'=rowMeans(counts(DESeq2.out, normalized=TRUE)),
-      'min'= rowMin(counts(DESeq2.out, normalized=TRUE)),
-      'max'= rowMax(counts(DESeq2.out, normalized=TRUE)),
-      'median'= rowMedians(counts(DESeq2.out, normalized=TRUE)),
-      'secondlargest'= apply(counts(DESeq2.out, normalized=TRUE), 1,  function(row) sort(row, partial=length(row)-1)[length(row)-1])
+      'mean'=rowMeans(counts(DESeq2_dataset, normalized=TRUE)),
+      'min'= rowMin(counts(DESeq2_dataset, normalized=TRUE)),
+      'max'= rowMax(counts(DESeq2_dataset, normalized=TRUE)),
+      'median'= rowMedians(counts(DESeq2_dataset, normalized=TRUE)),
+      'secondlargest'= apply(counts(DESeq2_dataset, normalized=TRUE), 1,  function(row) sort(row, partial=length(row)-1)[length(row)-1])
     )
+  } else {
+    filtering.methods.dataframe <- filtering.methods
   }
 
   if(is.na(quantiles)) {
@@ -788,7 +790,6 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset, alpha, contrasts,
       abline(v=metadata(deseq2.result)$filterTheta)
     }
     
-    
     title <- paste0(
       "DESeq2(", 
       contrast.name, 
@@ -799,11 +800,12 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset, alpha, contrasts,
       ", threshold=",
       round(metadata(deseq2.result)$filterThreshold,2)
     )
+    contrast.result.copy <- 
     contrast.result.copy <- deseq2.result
     contrast.result.copy$unadjPvalues <- deseq2.result$pvalue
     IF.DESeq2.results <- independent_filtering(
       contrast.result.copy,
-      filtering.methods,
+      filtering.methods.dataframe,
       theta=quantiles,
       title=title,
       fdr=fdr,
@@ -824,15 +826,8 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset, alpha, contrasts,
         filter=filtering.methods[[chosen_filter]]
       )
       
-    }
-    
-    ##
-    
-    
-    
-    
+    }    
   }
-  #return(list(contrastwise.standard.DESeq2.results, contrastwise.IF.DESeq2.results))
   return(contrastwise.output.list)
 }
 
@@ -906,17 +901,15 @@ independent_filtering <- function(dge_obj.with.pvalues,
   }
   
   stopifnot(!is.na(fromtool) | !((tolower(fromtool) != "deseq") & (tolower(fromtool) != "edger")) )
-  
   if(is.na(filtering.methods.dataframe)) {
     
     if(tolower(fromtool) == "deseq") {
-      print(typeof(dge_obj.with.pvalues[["DGE_obj"]]))
       filtering.methods.dataframe <- data.frame(
-        'mean'=rowMeans(counts(dge_obj.with.pvalues[["DGE_obj"]], normalized=TRUE)),
-        'min'= rowMin(counts(dge_obj.with.pvalues[["DGE_obj"]], normalized=TRUE)),
-        'max'= rowMax(counts(dge_obj.with.pvalues[["DGE_obj"]], normalized=TRUE)),
-        'median'= rowMedians(counts(ddge_obj.with.pvalues[["DGE_obj"]], normalized=TRUE)),
-        'secondlargest'= apply(counts(dge_obj.with.pvalues[["DGE_obj"]], normalized=TRUE), 1,  function(row) sort(row, partial=length(row)-1)[length(row)-1])
+        'mean'=rowMeans(counts(dge_obj.with.pvalues, normalized=TRUE)),
+        'min'= rowMin(counts(dge_obj.with.pvalues, normalized=TRUE)),
+        'max'= rowMax(counts(dge_obj.with.pvalues, normalized=TRUE)),
+        'median'= rowMedians(counts(dge_obj.with.pvalues, normalized=TRUE)),
+        'secondlargest'= apply(counts(dge_obj.with.pvalues, normalized=TRUE), 1,  function(row) sort(row, partial=length(row)-1)[length(row)-1])
       )
     }
 

@@ -800,7 +800,6 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset, alpha, contrasts,
       ", threshold=",
       round(metadata(deseq2.result)$filterThreshold,2)
     )
-    contrast.result.copy <- 
     contrast.result.copy <- deseq2.result
     contrast.result.copy$unadjPvalues <- deseq2.result$pvalue
     IF.DESeq2.results <- independent_filtering(
@@ -809,7 +808,7 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset, alpha, contrasts,
       theta=quantiles,
       title=title,
       fdr=fdr,
-      showplots=FALSE, # still need to work on this functionality
+      showplots=TRUE, # still need to work on this functionality
       fromtool="deseq"
     )
     #contrastwise.IF.DESeq2.results[[contrast.name]] <- IF.DESeq2.results
@@ -823,7 +822,7 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset, alpha, contrasts,
         contrast=c("condition", contrast.conditions[1], contrast.conditions[2]),
         alpha=alpha,
         pAdjustMethod=pAdjustMethod,
-        filter=filtering.methods[[chosen_filter]]
+        filter=filtering.methods.dataframe[[chosen_filter]]
       )
       
     }    

@@ -29,8 +29,6 @@ except ModuleNotFoundError:
     else:
         pip.main(['install', '--user', 'networkx==2.3'])
     import networkx as nx
-finally:
-    from networkx.drawing.nx_pydot import graphviz_layout
 
 try:
     import goenrich
@@ -52,10 +50,7 @@ finally:
     from bokeh.io import show, output_file, output_notebook
     from bokeh.models import Plot, Range1d, MultiLine, Circle, HoverTool, TapTool, BoxSelectTool, BoxZoomTool, ResetTool, PanTool
     from bokeh.models.graphs import from_networkx, NodesAndLinkedEdges, EdgesAndLinkedNodes
-    from bokeh.models import GraphRenderer, StaticLayoutProvider
     from bokeh.palettes import Spectral4
-
-
 
 def run_gProfiler_gOST( gene_symbols_list:List[str], 
                         organism:str='hsapiens') -> pd.DataFrame:
@@ -90,21 +85,10 @@ def generate_go_tree(obo_file_path:str=None, gaf_file_path:str=None) -> nx.Graph
     return onto
 
 def plot_subgraph(  onto_graph:nx.Graph, node_subset:Union[List[str],Set[str]],
-                    in_IPython:bool=False, cargo_key:str='gene2go'):
+                    in_IPython:bool=False):
     """
     """
-    for node, node_data in onto_graph.nodes(data=True):
-        if 'name' in node_data.keys():
-            name = node_data.pop('name')
-            node_data['fullname'] = name
-        node_data[cargo_key] = list(node_data[cargo_key])
-
     G = onto_graph.subgraph(node_subset)
-
-    pos = graphviz_layout(G, prog='dot')
-    #for k,v in pos.items():
-    #    pos[k] = (v[0], -v[1])
-        
     # Show with Bokeh
     plot = Plot(plot_width=1600, plot_height=800,
                 x_range=Range1d(-1.1, 1.1), y_range=Range1d(-1.1, 1.1))
@@ -133,5 +117,4 @@ def plot_subgraph(  onto_graph:nx.Graph, node_subset:Union[List[str],Set[str]],
     #output_file("interactive_graphs.html")
     if in_IPython: output_notebook()
 
-    return plot
-    
+    show(plot)

@@ -1,5 +1,6 @@
 # standard library dependencies
 import os
+import re 
 import pip
 from typing import Tuple, Mapping, List, Union
 

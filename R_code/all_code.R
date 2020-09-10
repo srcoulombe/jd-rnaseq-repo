@@ -73,6 +73,7 @@ rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
                                           row.names=1,
                                           keep_columns=c(),
                                           drop_columns=c(),
+                                          encoding='utf-8',
                                           make_ensembl_to_symbol=TRUE,
                                           make_histogram=FALSE, 
                                           make_boxplot=FALSE,
@@ -93,21 +94,23 @@ rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
   #
   #   keep_columns, drop_columns:   vectors of column names (strings) to keep/drop.
   #                                 cannot contain any shared strings.
-  #  
-  #   `make_ensembl_to_symbol`: if TRUE, will create a [ENSEMBL ID, Gene Symbol] 
+  #
+  #   encoding: string used to specify the encoding of the file specified by rawCountsMatrix_filepath.
+  #
+  #   make_ensembl_to_symbol:   if TRUE, will create a [ENSEMBL ID, Gene Symbol] 
   #                             dataframe and return it as the third item in the returned
   #                             list. Assumes that the ENSEMBL IDs are the row names of the
   #                             `raw.data` dataframe, and that the dataframe has a "Symbol" column.
   #                           
-  #                             if FALSE, the third item in the returned list will be NULL.
+  #                             if FALSE, the third item in the returned list will be NA.
   #                             
   #                             default = TRUE.
   #
-  #   `makeplots`:  indicates whether to produce exploratory plots or not.
+  #   makeplots:  indicates whether to produce exploratory plots or not.
   #
   #                 default = TRUE.
   #
-  #   `verbose`:  indicator of verbosity. 
+  #   verbose:  indicator of verbosity. 
   #
   #               default = TRUE.
   #
@@ -132,7 +135,7 @@ rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
   }
   
   if(verbose) {
-    print("Loading raw counts matrix")
+    print("Loading raw counts matrix into a dataframe")
   }
   
   # load data into dataframe
@@ -142,21 +145,22 @@ rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
       sep=sep, 
       header=header, 
       row.names=row.names,
-      encoding='utf-8'
+      encoding=encoding
     )
   )
   
-  # print a preview
-  print(head(raw.data))
-  print(tail(raw.data))
-  
-  if(verbose){
-    print("Dimensions of raw count matrix:")
+  if(verbose) {  
+    # print metadata
+    print("Dimensions of raw count dataframe:")
     print(dim(raw.data))
-    print("Columns of raw count matrix:")
+    print("Columns of raw count dataframe:")
     print(colnames(raw.data))
-    print("Head of raw count matrix:")
+    
+    # print a preview
+    print("Head of raw count dataframe:")
     print(head(raw.data))
+    print("Tail of raw count dataframe:")
+    print(tail(raw.data))
   }
   
   if(make_ensembl_to_symbol) {
@@ -177,6 +181,7 @@ rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
   }
   # positive column selection
   raw.data <- raw.data[,which(names(raw.data) %in% keep_columns)]
+  
   # negative column selection
   if(length(drop_columns) > 0) {
     if(verbose) {
@@ -198,18 +203,29 @@ rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
   if(make_histogram | make_boxplot) {
     plotLog1PReadCountsDistribution(
       raw.data, 
-      histogram=make_histogram, boxplot=make_boxplot,
+      histogram=make_histogram, 
+      boxplot=make_boxplot,
       verbose=verbose
     )
   }
   
   if(make_ensembl_to_symbol) {
-    list_to_return <- list("raw.data" = raw.data, "conditions" = conditions, "ENSEMBL_ID_to_Symbol" = ENSEMBL_ID_to_Symbol)  
+    return(
+      list(
+        "raw.data" = raw.data, 
+        "conditions" = conditions, 
+        "ENSEMBL_ID_to_Symbol" = ENSEMBL_ID_to_Symbol
+      )
+    )
   } else {
-    list_to_return <- list("raw.data" = raw.data, "conditions" = conditions)
+    return(
+      list(
+        "raw.data" = raw.data, 
+        "conditions" = conditions,
+        "ENSEMBL_ID_to_Symbol": NA
+      )
+    )
   }
-  
-  return(list_to_return)
 }
 
 write.gct <- function(gct, filename, check.file.extension=TRUE){
@@ -568,7 +584,7 @@ edgeR_DGE_analysis <- function( DGE_obj, design, alpha, coef=NULL, contrasts=NUL
                                 pAdjustMethod="BH", verbose=TRUE, chosen_filter=NA) {
   
   if(is.na(quantiles)) {
-    quantiles <- seq(from=0.4, to=0.95, by=0.01)
+    quantiles <- seq(from=0.0, to=0.99, by=0.01)
   }
 
   if(is.na(filtering.methods)) {
@@ -767,7 +783,7 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
   }
 
   if(is.na(quantiles)) {
-    quantiles <- seq(from=0.4, to=0.95, by=0.01)
+    quantiles <- seq(from=0.0, to=0.99, by=0.01)
   }
   
   #contrastwise.standard.DESeq2.results <- list()
@@ -924,7 +940,7 @@ independent_filtering <- function(dge_obj.with.pvalues,
   #   https://bioconductor.org/packages/release/bioc/vignettes/genefilter/inst/doc/independent_filtering.pdf
   
   if(is.na(theta)) {
-    theta <- seq(from=0.4, to=0.95, by=0.01)
+    theta <- seq(from=0.0, to=0.99, by=0.01)
   }
   
   stopifnot(!is.na(fromtool) | !((tolower(fromtool) != "deseq") & (tolower(fromtool) != "edger")) )
@@ -1012,21 +1028,27 @@ library(chromoMap)
 library(karyoploteR) 
 
 plotLog1PReadCountsDistribution <- function(raw_reads_dataframe, 
+                                            conditions=NA,
                                             histogram=TRUE, 
                                             boxplot=TRUE,
                                             verbose=FALSE){
   #
-  conditions <- sub(
-    "\\_.*", "",
-    colnames(raw_reads_dataframe)
-  )
-  if(verbose){
-    print("Inferred following conditions from filtered count matrix:\n")
-    print(conditions)
+
+  if is.na(conditions) {
+    conditions <- sub(
+      "\\_.*", "",
+      colnames(raw_reads_dataframe)
+    )
+    if(verbose){
+      print("Inferred following conditions from filtered dataframe:\n")
+      print(conditions)
+    }
   }
+  
   colors = c(1:length(unique(conditions)))
   
   if(histogram) {
+    # is as.data.frame needed?
     readcounts.histogram <- ggplot(gather(as.data.frame(log1p(raw_reads_dataframe))), aes(value)) + 
       geom_histogram(binwidth = 1) + 
       facet_wrap(~key) +
@@ -1035,6 +1057,7 @@ plotLog1PReadCountsDistribution <- function(raw_reads_dataframe,
   }
   
   if(boxplot) {
+    # is as.data.frame needed?
     readcounts.boxplot <- ggplot(
       data = reshape2::melt(as.data.frame(log1p(raw_reads_dataframe))), aes( x=variable, y=value)) + 
       geom_boxplot(aes(fill=variable)) +

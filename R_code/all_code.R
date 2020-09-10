@@ -11,7 +11,7 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
 ## are not, the missing package(s) will be installed 
 ## from CRAN and then loaded.
 
-## First specify the packages of interest
+## First specify the packages of interest from both BiocManager and CRAN
 Bioc_dependencies = c(
   "DESeq2", 
   "DESeq",
@@ -26,7 +26,6 @@ Bioc_dependencies = c(
   "chromoMap",
   "karyoploteR"
 )
-
 
 CRAN_dependencies = c(
   "data.table",
@@ -69,22 +68,21 @@ library(stringr)
 library(dplyr)
 
 rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
-                                          sep=",", header=TRUE, row.names=1,
-                                          keep_columns=c(),drop_columns=c(),
+                                          sep=",", 
+                                          header=TRUE, 
+                                          row.names=1,
+                                          keep_columns=c(),
+                                          drop_columns=c(),
                                           make_ensembl_to_symbol=TRUE,
-                                          make_histogram=FALSE, make_boxplot=FALSE,
+                                          make_histogram=FALSE, 
+                                          make_boxplot=FALSE,
                                           verbose=FALSE) {
   
-  # Do-it-all function that 
-  # 1. loads the contents of the `sep`-separated file specified by 
-  # `rawCountsMatrix_filepath` (passing the `sep`,`header`, and `row.names`
-  # parameter values to the read.table function), 
-  # 2. keeps the columns specified by `keep_columns` (also drops columns 
-  # specified by `drop_columns`),
-  # 3. creates a vector of condition labels inferred from the retained columns'
-  # names, and
-  # 4. returns the filtered dataframe, the vector of condition labels
-  
+  # Loads the contents of the `sep`-separated file specified by `rawCountsMatrix_filepath`,
+  # keeps the columns specified by `keep_columns` and drops columns specified by `drop_columns`,
+  # creates a vector of condition labels inferred from the retained columns' names, and
+  # returns the filtered dataframe, the vector of condition labels
+  #
   # PARAMETERS:
   #
   #   rawCountsMatrix_filepath: string path to the file containing raw counts.
@@ -124,8 +122,6 @@ rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
   #             ENSEMBL_ID_to_Symbol is either NULL (if make_ensembl_to_symbol=FALSE) 
   #             or a [ENSEMBL ID, Gene Symbol] dataframe (if make_ensembl_to_symbol=TRUE)
   #
-  # TODO:
-  #   nicer graphs with ggplot
   
   if(length(intersect(keep_columns, drop_columns)) > 0) {
     stop("`keep_columns` and `drop_columns` aren't mutually exclusive")
@@ -150,6 +146,7 @@ rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
     )
   )
   
+  # print a preview
   print(head(raw.data))
   print(tail(raw.data))
   
@@ -199,7 +196,6 @@ rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
   }
   
   if(make_histogram | make_boxplot) {
-    
     plotLog1PReadCountsDistribution(
       raw.data, 
       histogram=make_histogram, boxplot=make_boxplot,
@@ -217,13 +213,26 @@ rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
 }
 
 write.gct <- function(gct, filename, check.file.extension=TRUE){
-  #
-  # save a GCT result to a file, ensuring the filename has the extension .gct
-  #
+  # Save a representation of `gct` to a file, ensuring the filename has the extension .gct
+  # in order to produce the DESeq2-normalized counts file (.gct) to use as input
+  # to GSEA.
   # shamelessly ripped off of:
   # https://github.com/genepattern/DESeq2/blob/abac851160ed1f84af2aa06f85b497c4b144656e/src/common.R
-  # in order to produce the DESeq2-normalized counts file (.gct format)
-  # to use as input to GSEA
+  # 
+  # PARAMETERS:
+  #   
+  #   gct: 
+  #
+  #   filename: string indicating the path of the output file. 
+  #             its extension will be replaced with .gct if `check.file.extension`                
+  #             is TRUE.
+  #
+  #   check.file.extension: boolean indicating whether to replace the extension of
+  #                         `filename` with `.gct`.
+  #                         defaults to TRUE.
+  # RETURNS:
+  #
+  #   filename: string path to the output file.
   
   if(check.file.extension) {
     filename <- check.extension(filename, ".gct") 
@@ -278,12 +287,20 @@ write.gct <- function(gct, filename, check.file.extension=TRUE){
 }
 
 write.factor.to.cls <- function(factor, filename) {
-  # writes a factor to a cls file
-  #
+  # Save a representation of `factor` to a file which could be used as input
+  # to GSEA.
   # shamelessly ripped off of:
   # https://github.com/genepattern/DESeq2/blob/abac851160ed1f84af2aa06f85b497c4b144656e/src/common.R
-  # in order to generate the .cls file needed for GSEA
-  # modifications: removed check.file.extension functionality.
+  # 
+  # PARAMETERS:
+  #   
+  #   factor: 
+  #
+  #   filename: string indicating the path of the output file. 
+  #
+  # RETURNS:
+  #
+  #   filename: string path to the output file.
   
   file <- file(filename, "w")
   on.exit(close(file))
@@ -320,12 +337,17 @@ write.factor.to.cls <- function(factor, filename) {
   return(filename) 
 }
 
-get.conversion.map <- function( raw.counts.data, biomart="ensembl", dataset="hsapiens_gene_ensembl",
+get.conversion.map <- function( raw.counts.data, 
+                                biomart="ensembl", 
+                                dataset="hsapiens_gene_ensembl",
                                 BMattributes=c('ensembl_gene_id','external_gene_name'),
                                 BMfilters='ensembl_gene_id',
                                 str_replace_pattern=".[0-9]+$",
                                 str_replace_replacement="",
                                 prefetched_file_name="ensembl_ID_gene_symbol_map_may2020.tsv"){
+  #
+  #
+  #
   mart <- useMart(
     biomart=biomart,
     dataset=dataset
@@ -359,35 +381,33 @@ get.conversion.map <- function( raw.counts.data, biomart="ensembl", dataset="hsa
   }, finally = {
     message("Map loaded!")
   })
-  
-  
-  #x.to.y.map <- getBM(
-  #  attributes=BMattributes,
-  #  filters=BMfilters,
-  #  values=str_replace(
-  #    rownames(raw.counts.data$raw.data),
-  #    pattern=str_replace_pattern,
-  #    replacement=str_replace_replacement
-  #  ),
-  #  mart=mart
-  #)
-  
+   
   rownames(x.to.y.map) <- x.to.y.map$ensembl_gene_id
   x.to.y.map<-subset(x.to.y.map, select=('external_gene_name'))
   return(x.to.y.map)
 }
 
-save.spreadsheet <- function( DESeq2.results, edgeR.results, 
-                              raw.counts.data, contrasts, 
-                              symbol.to.id.map, fdr,
-                              file_prefix, mainDir, subDir, 
-                              saveoutput=TRUE, chosen_filter="mean"){
+save.spreadsheet <- function( DESeq2.results, 
+                              edgeR.results, 
+                              raw.counts.data, 
+                              contrasts, 
+                              symbol.to.id.map, 
+                              fdr,
+                              file_prefix, 
+                              mainDir, 
+                              subDir, 
+                              saveoutput=TRUE, 
+                              chosen_filter="mean"){
+  #
+  #
+  #
+
   if(dir.exists(file.path(mainDir, subDir))) {
     print(
       paste0(
-        "Directory\n",
+        "Directory",
         file.path(mainDir, subDir),
-        "\nalready exists.\n",
+        "already exists.",
         "Please change your output directory name"
       )
     )
@@ -404,13 +424,11 @@ save.spreadsheet <- function( DESeq2.results, edgeR.results,
     relevant.columns.mask <- sapply(transpose(relevant.columns), any) # column-wise OR
     relevant.columns <- colnames(raw.counts.data$raw.data)[relevant.columns.mask] # from indices to names
     
-    
     relevant.raw.data <- raw.counts.data$raw.data[relevant.columns]
     
     relevant.DESeq2.normalized.data <- as.data.frame(counts(DESeq2.results$DGE_obj, normalized=TRUE))[relevant.columns.mask]
     colnames(relevant.DESeq2.normalized.data) <- paste("DESeq_norm", colnames(relevant.DESeq2.normalized.data), sep = "_")
     
-
     relevant.edger.normalized.data <- as.data.frame(t(
       t(edgeR.results$DGE_obj$pseudo.counts)*(edgeR.results$DGE_obj$samples$norm.factors)
     ))[relevant.columns.mask]
@@ -535,8 +553,6 @@ save.spreadsheet <- function( DESeq2.results, edgeR.results,
 
 ## start of dge_analysis.R ##
 library(data.table)
-#library(circlize)
-#library(mixOmics)
 library(HTSFilter)
 library(tidyr)
 library(plyr)
@@ -643,8 +659,13 @@ edgeR_DGE_analysis <- function( DGE_obj, design, alpha, coef=NULL, contrasts=NUL
   return(contrastwise.output.list)
 }
 
-edgeR_DGE <- function(DGE_obj, design, coef=NULL, contrast=NULL,
-                      useLRT=FALSE, useQLF=FALSE, useEXACT=TRUE) {
+edgeR_DGE <- function(DGE_obj, 
+                      design, 
+                      coef=NULL, 
+                      contrast=NULL,
+                      useLRT=FALSE, 
+                      useQLF=FALSE, 
+                      useEXACT=TRUE) {
   # Wrapper function to run any of edgeR's three tests: exactTest, glmLRt, and glmQLFTest.
   #
   # PARAMETERS:
@@ -701,10 +722,15 @@ edgeR_DGE <- function(DGE_obj, design, coef=NULL, contrast=NULL,
   return(list_to_return)
 }
 
-DESeq2_DGE_analysis <- function(DESeq2_dataset, alpha, contrasts, 
-                                plotRejCurve=TRUE, filtering.methods=NA, quantiles=NA, 
-                                chosen_filter=NA, pAdjustMethod="BH", verbose=FALSE) {
-  #
+DESeq2_DGE_analysis <- function(DESeq2_dataset, 
+                                alpha, 
+                                contrasts, 
+                                plotRejCurve=TRUE, 
+                                filtering.methods=NA, 
+                                quantiles=NA, 
+                                chosen_filter=NA, 
+                                pAdjustMethod="BH", 
+                                verbose=FALSE) {
   #
   # PARAMETERS:
   #
@@ -800,7 +826,6 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset, alpha, contrasts,
       ", threshold=",
       round(metadata(deseq2.result)$filterThreshold,2)
     )
-    contrast.result.copy <- 
     contrast.result.copy <- deseq2.result
     contrast.result.copy$unadjPvalues <- deseq2.result$pvalue
     IF.DESeq2.results <- independent_filtering(
@@ -809,7 +834,7 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset, alpha, contrasts,
       theta=quantiles,
       title=title,
       fdr=fdr,
-      showplots=FALSE, # still need to work on this functionality
+      showplots=TRUE, # still need to work on this functionality
       fromtool="deseq"
     )
     #contrastwise.IF.DESeq2.results[[contrast.name]] <- IF.DESeq2.results
@@ -823,7 +848,7 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset, alpha, contrasts,
         contrast=c("condition", contrast.conditions[1], contrast.conditions[2]),
         alpha=alpha,
         pAdjustMethod=pAdjustMethod,
-        filter=filtering.methods[[chosen_filter]]
+        filter=filtering.methods.dataframe[[chosen_filter]]
       )
       
     }    
@@ -851,8 +876,10 @@ design.pairs <- function(levels) {
 
 independent_filtering <- function(dge_obj.with.pvalues, 
                                   filtering.methods.dataframe,
-                                  theta=NA, fdr=0.05, 
-                                  showplots=TRUE, p.adjust_method="BH", 
+                                  theta=NA, 
+                                  fdr=0.05, 
+                                  showplots=TRUE, 
+                                  p.adjust_method="BH", 
                                   title="Filtering Methods' Rejection Curves",
                                   fromtool=NA) {
   #
@@ -985,7 +1012,8 @@ library(chromoMap)
 library(karyoploteR) 
 
 plotLog1PReadCountsDistribution <- function(raw_reads_dataframe, 
-                                            histogram=TRUE, boxplot=TRUE,
+                                            histogram=TRUE, 
+                                            boxplot=TRUE,
                                             verbose=FALSE){
   #
   conditions <- sub(

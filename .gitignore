@@ -133,3 +133,6 @@ dmypy.json
 .ipynb
 .obo
 .tsv
+.RData
+.Rhistory
+.Rmd

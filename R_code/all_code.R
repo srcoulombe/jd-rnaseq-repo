@@ -760,7 +760,6 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
                                 chosen_filter=NA, 
                                 pAdjustMethod="BH", 
                                 verbose=FALSE) {
-  #
   # PARAMETERS:
   #
   #   DESeq2_dataset:  DESeqDataSet object on which to perform the statistical tests.
@@ -1044,9 +1043,31 @@ plotLog1PReadCountsDistribution <- function(raw_reads_dataframe,
                                             conditions = NA,
                                             histogram = TRUE, 
                                             boxplot = TRUE,
-                                            title = NA, 
+                                            title = "", 
                                             verbose = FALSE){
+  # PARAMETERS:
   #
+  #   raw_reads_dataframe:  data.frame object with samples as columns and genes as rows.
+  #
+  #   conditions: (optional) iterable of strings assigning each sample 
+  #               (column in `raw_reads_dataframe`) to a condition.
+  #               defaults to NA.
+  #               e.g. if `raw_reads_dataframe`'s columns represented 
+  #               wt_sample1, wt_sample2, cancer_sample1, cancer_sample2,
+  #               then `conditions` could be set to = c("wt", "wt", "cancer", "cancer")
+  #
+  #   histogram, boxplot: (optional) booleans indicating whether to plot a specific graph.
+  #                       both default to TRUE.
+  #   title:  (optional) string to use as title.
+  #           defaults to "" (empty string).
+  #
+  #   verbose:  (optional) boolean indicator of verbosity.
+  #             defaults to FALSE,
+  #
+  # RETURNS:
+  #   
+  #   Nothing.
+
 
   if is.na(conditions) {
     conditions <- sub(
@@ -1057,10 +1078,8 @@ plotLog1PReadCountsDistribution <- function(raw_reads_dataframe,
       print("Inferred following conditions from filtered dataframe:\n")
       print(conditions)
     }
-  }
-
-  if is.na(title) {
-    title <- ""
+  } else {
+    stopifnot(length(conditions) == dim(raw_reads_dataframe)[2])
   }
   
   colors = c(1:length(unique(conditions)))

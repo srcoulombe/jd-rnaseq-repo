@@ -578,11 +578,23 @@ library(limma)
 library(Glimma)
 library(DESeq2)
 
-edgeR_DGE_analysis <- function( DGE_obj, design, alpha, coef=NULL, contrasts=NULL,
-                                useLRT=FALSE, useQLF=FALSE, useEXACT=TRUE,
-                                plotRejCurve=TRUE, filtering.methods=NA, quantiles=NA, 
-                                pAdjustMethod="BH", verbose=TRUE, chosen_filter=NA) {
+edgeR_DGE_analysis <- function( DGE_obj, design, alpha, 
+                                coef=NULL, 
+                                contrasts=NULL,
+                                useLRT=FALSE, 
+                                useQLF=FALSE, 
+                                useEXACT=TRUE,
+                                plotRejCurve=TRUE, 
+                                filtering.methods=NA, 
+                                chosen_filter=NA,
+                                quantiles=NA, 
+                                pAdjustMethod="BH", 
+                                verbose=TRUE) {
   
+  if(!any(useEXACT, useLRT, useQLF)) {
+    stop("at least one of `useEXACT`, `useLRT`, or `useQLF` must be TRUE")
+  }
+
   if(is.na(quantiles)) {
     quantiles <- seq(from=0.0, to=0.99, by=0.01)
   }
@@ -605,8 +617,9 @@ edgeR_DGE_analysis <- function( DGE_obj, design, alpha, coef=NULL, contrasts=NUL
   DGE_obj <- estimateGLMCommonDisp(DGE_obj, design)
   DGE_obj <- estimateGLMTrendedDisp(DGE_obj, design)
   DGE_obj <- estimateGLMTagwiseDisp(DGE_obj, design)
-  contrastwise.output.list <- list()
-  contrastwise.output.list[['DGE_obj']] <- DGE_obj
+
+  contrastwise.output.list <- list('DGE_obj'=DGE_obj)
+
   for(i in 1:dim(contrasts)[2]) {
     edger.result <- edgeR_DGE(
       DGE_obj, design, contrast=contrasts[,i], 
@@ -1028,10 +1041,11 @@ library(chromoMap)
 library(karyoploteR) 
 
 plotLog1PReadCountsDistribution <- function(raw_reads_dataframe, 
-                                            conditions=NA,
-                                            histogram=TRUE, 
-                                            boxplot=TRUE,
-                                            verbose=FALSE){
+                                            conditions = NA,
+                                            histogram = TRUE, 
+                                            boxplot = TRUE,
+                                            title = NA, 
+                                            verbose = FALSE){
   #
 
   if is.na(conditions) {
@@ -1044,6 +1058,10 @@ plotLog1PReadCountsDistribution <- function(raw_reads_dataframe,
       print(conditions)
     }
   }
+
+  if is.na(title) {
+    title <- ""
+  }
   
   colors = c(1:length(unique(conditions)))
   
@@ -1053,22 +1071,24 @@ plotLog1PReadCountsDistribution <- function(raw_reads_dataframe,
       geom_histogram(binwidth = 1) + 
       facet_wrap(~key) +
       labs(x = "ln(1 + raw reads mapped to genes)")
-    print(readcounts.histogram)
+    print(readcounts.histogram + ggtitle(title))
   }
   
   if(boxplot) {
     # is as.data.frame needed?
     readcounts.boxplot <- ggplot(
-      data = reshape2::melt(as.data.frame(log1p(raw_reads_dataframe))), aes( x=variable, y=value)) + 
+      data = reshape2::melt(as.data.frame(log1p(raw_reads_dataframe))), aes(x=variable, y=value)) + 
       geom_boxplot(aes(fill=variable)) +
       theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
       labs(y = "ln(1 + raw reads mapped to genes)", x = "sample")
-    print(readcounts.boxplot)
+    print(readcounts.boxplot + ggtitle(title))
   }
 }
 
 plotPheatMap <- function(data_obj, fromtool=NA){
+  
   stopifnot(!is.na(fromtool))
+
   if (tolower(fromtool) == "edger") {
     sample.counts <- data_obj$counts
     sample.names <- colnames(data_obj)
@@ -1089,28 +1109,33 @@ plotPheatMap <- function(data_obj, fromtool=NA){
   colors <- colorRampPalette( brewer.pal(9, "Blues") )(255)
   pm <- pheatmap(sample.dists,
                  col=colors,
-                 main="PheatMap\n(sample correlation)",
+                 main=paste("PheatMap\n(sample correlation)", paste("(",title,")", sep=''), sep='\n'),
                  display_numbers = sample.dists.vals
   )
   print(pm)
 }
 
-plotScree <- function(prcomp.obj){
-  p <- fviz_eig(prcomp.obj)
-  print(p)
+plotScree <- function(prcomp.obj, ...){
+  print(
+    fviz_eig(prcomp.obj, ...)
+  )
 }
 
-plotPC1vsPC2 <- function(prcomp.obj, normalized.data,
-                         repel=TRUE){
-  p <- fviz_pca_ind(
-    prcomp.obj, 
-    #label=label, 
-    habillage=normalized.data$condition,
-    #geom=geom, 
-    repel=repel,
-    title="PC1 vs PC2\n(Large markers are centroids)"
+plotPC1vsPC2 <- function( prcomp.obj, 
+                          normalized.data,
+                          repel=TRUE,
+                          ...){
+  print(
+    fviz_pca_ind(
+      prcomp.obj, 
+      #label=label, 
+      habillage=normalized.data$condition,
+      #geom=geom, 
+      repel=repel,
+      title="PC1 vs PC2\n(Large markers are centroids)",
+      ...
+    )
   )
-  print(p)
 }
 
 plotRejectionCurve <- function(filtering.methods, rejections, theta){

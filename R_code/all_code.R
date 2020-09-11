@@ -68,16 +68,17 @@ library(stringr)
 library(dplyr)
 
 rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
-                                          sep=",", 
-                                          header=TRUE, 
-                                          row.names=1,
-                                          keep_columns=c(),
-                                          drop_columns=c(),
-                                          encoding='utf-8',
-                                          make_ensembl_to_symbol=TRUE,
-                                          make_histogram=FALSE, 
-                                          make_boxplot=FALSE,
-                                          verbose=FALSE) {
+                                          sep = ",", 
+                                          header = TRUE, 
+                                          row.names = 1,
+                                          keep_columns = c(),
+                                          drop_columns = c(),
+                                          encoding = 'utf-8',
+                                          make_ensembl_to_symbol = TRUE,
+                                          gene_symbol_column = NA, 
+                                          make_histogram = FALSE, 
+                                          make_boxplot = FALSE,
+                                          verbose = FALSE) {
   
   # Loads the contents of the `sep`-separated file specified by `rawCountsMatrix_filepath`,
   # keeps the columns specified by `keep_columns` and drops columns specified by `drop_columns`,
@@ -125,13 +126,15 @@ rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
   #             ENSEMBL_ID_to_Symbol is either NULL (if make_ensembl_to_symbol=FALSE) 
   #             or a [ENSEMBL ID, Gene Symbol] dataframe (if make_ensembl_to_symbol=TRUE)
   #
+  # TODO: make conditions a kwarg?
   
   if(length(intersect(keep_columns, drop_columns)) > 0) {
     stop("`keep_columns` and `drop_columns` aren't mutually exclusive")
   }
   
   if( (length(keep_columns) == 0) & (length(drop_columns) == 0) ) {
-    stop("at least one of `keep_columns` and `drop_columns` must be non-empty")
+    keep_columns <- "all"
+    print("since `keep_columns` and `drop_columns` were empty vectors, all columns will be kept.")
   }
   
   if(verbose) {
@@ -166,22 +169,26 @@ rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
   if(make_ensembl_to_symbol) {
     if(verbose) print("Creating ENSEMBL ID <-> Gene Symbol dataframe")
     # create [ENSEMBLE ID, Gene Symbol] dataframe for future lookups
+    stopifnot(!is.na(gene_symbol_column))
+    stopifnot(gene_symbol_column %in% colnames(raw.data))
     ENSEMBL_ID_to_Symbol <- data.frame(
-      rownames(raw.data), raw.data$Symbol
+      rownames(raw.data), raw.data[gene_symbol_column]
     )
-    colnames(ENSEMBL_ID_to_Symbol) <- c("ENSEMBLID", "Symbol")
+    colnames(ENSEMBL_ID_to_Symbol) <- c("ENSEMBL ID", gene_symbol_column)
     
   } else {
     make_ensembl_to_symbol=FALSE
   }
   
-  if(verbose) {
-    print("Keeping the following columns in raw counts matrix:")
-    print(keep_columns)
-  }
   # positive column selection
-  raw.data <- raw.data[,which(names(raw.data) %in% keep_columns)]
-  
+  if(keep_columns != "all"){
+    if(verbose) {
+      print("Keeping the following columns in raw counts matrix:")
+      print(keep_columns)
+    }
+    raw.data <- raw.data[,which(names(raw.data) %in% keep_columns)]
+  }  
+
   # negative column selection
   if(length(drop_columns) > 0) {
     if(verbose) {

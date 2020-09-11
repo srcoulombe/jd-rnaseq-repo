@@ -1154,6 +1154,15 @@ plotPheatMap <- function(data_obj, fromtool = NA, title = "", ...){
 }
 
 plotScree <- function(prcomp.obj, ...){
+  # Wrapper around `fviz_eig` to plot a scree plot.
+  #
+  # PARAMETERS:
+  #
+  #   prcomp.obj: object obtained by prcomp.
+  #
+  # RETURNS
+  #
+  #   Nothing.
   print(
     fviz_eig(prcomp.obj, ...)
   )
@@ -1162,15 +1171,35 @@ plotScree <- function(prcomp.obj, ...){
 plotPC1vsPC2 <- function( prcomp.obj, 
                           normalized.data,
                           repel=TRUE,
+                          title="PC1 vs PC2\n(Large markers are centroids)",
                           ...){
+  # Wrapper around `fviz_pca_ind` to plot a PC1 vs PC2 plot.
+  #
+  # PARAMETERS:
+  #
+  #   prcomp.obj: object obtained by prcomp.
+  #
+  #   normalized.data:  data.frame with a `condition` column to use when 
+  #                     labelling points.
+  #
+  #   repel:  (optional) boolean indicating whether the points should be 'wiggled'
+  #           when plotting to avoid overplotting.
+  #           defaults to TRUE.
+  #   
+  #   title:  (optional) string to use as the plot's title.
+  #           defaults to 'PC1 vs PC2\n(Large markers are centroids)'.
+  #
+  # RETURNS
+  #
+  #   Nothing.
   print(
     fviz_pca_ind(
       prcomp.obj, 
       #label=label, 
-      habillage=normalized.data$condition,
-      #geom=geom, 
-      repel=repel,
-      title="PC1 vs PC2\n(Large markers are centroids)",
+      habillage = normalized.data$condition,
+      #geom = geom, 
+      repel = repel,
+      title = title,
       ...
     )
   )

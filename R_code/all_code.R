@@ -1045,6 +1045,8 @@ plotLog1PReadCountsDistribution <- function(raw_reads_dataframe,
                                             boxplot = TRUE,
                                             title = "", 
                                             verbose = FALSE){
+  # Function used to plot histogram and box plots from a dataframe.
+  #                                              
   # PARAMETERS:
   #
   #   raw_reads_dataframe:  data.frame object with samples as columns and genes as rows.
@@ -1062,7 +1064,7 @@ plotLog1PReadCountsDistribution <- function(raw_reads_dataframe,
   #           defaults to "" (empty string).
   #
   #   verbose:  (optional) boolean indicator of verbosity.
-  #             defaults to FALSE,
+  #             defaults to FALSE.
   #
   # RETURNS:
   #   
@@ -1104,8 +1106,21 @@ plotLog1PReadCountsDistribution <- function(raw_reads_dataframe,
   }
 }
 
-plotPheatMap <- function(data_obj, fromtool=NA){
-  
+plotPheatMap <- function(data_obj, fromtool = NA, title = "", ...){
+  # Wrapper around `pheatmap` to draw clustered heatmaps.
+  #
+  # PARAMETERS:
+  #
+  #   data_obj: one of edgeR's DGEList or DESeq2's DESeqDataSet.
+  #
+  #   fromtool: string among 'edger', 'deseq' indicating which tool generated `data_obj`
+  #
+  #   title: (optional) string to use as plot title.
+  #
+  # RETURNS:
+  #   
+  #   Nothing.
+
   stopifnot(!is.na(fromtool))
 
   if (tolower(fromtool) == "edger") {
@@ -1118,18 +1133,22 @@ plotPheatMap <- function(data_obj, fromtool=NA){
     print("plotPheatMap's `fromtool` keyword argument should be 'edger' or 'deseq'")
     return(NA)
   }
+
   sample.dists <- cor(sample.counts, method = c("pearson"))
   # round to integer
   sample.dists.vals <- round(sample.dists, digits=3)
   # remove NAs
   sample.dists.vals[ is.na(sample.dists.vals) ] <- ""
+  
   rownames(sample.dists) <- sample.names
   colnames(sample.dists) <- sample.names
   colors <- colorRampPalette( brewer.pal(9, "Blues") )(255)
+  
   pm <- pheatmap(sample.dists,
                  col=colors,
                  main=paste("PheatMap\n(sample correlation)", paste("(",title,")", sep=''), sep='\n'),
-                 display_numbers = sample.dists.vals
+                 display_numbers = sample.dists.vals,
+                 ...
   )
   print(pm)
 }

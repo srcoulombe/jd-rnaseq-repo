@@ -74,7 +74,7 @@ rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
                                           keep_columns = c(),
                                           drop_columns = c(),
                                           encoding = 'utf-8',
-                                          make_ensembl_to_symbol = TRUE,
+                                          make_ensembl_to_symbol = FALSE,
                                           gene_symbol_column = NA, 
                                           make_histogram = FALSE, 
                                           make_boxplot = FALSE,
@@ -89,31 +89,30 @@ rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
   #
   #   rawCountsMatrix_filepath: string path to the file containing raw counts.
   #
-  #   sep, header, row.names:   optional parameters to pass onto read.table.
+  #   sep, header, row.names:   (optional) parameters to pass onto read.table.
+  #                             default to sep = ",", header = TRUE, row.names = 1.
   #
-  #                             default to sep=",", header=TRUE, row.names=1.
-  #
-  #   keep_columns, drop_columns:   vectors of column names (strings) to keep/drop.
+  #   keep_columns, drop_columns:   (optional) vectors of column names (strings) to keep/drop.
   #                                 cannot contain any shared strings.
+  #                                 default to c(), c().
   #
-  #   encoding: string used to specify the encoding of the file specified by rawCountsMatrix_filepath.
+  #   encoding: (optional) string used to specify the encoding of the file specified by `rawCountsMatrix_filepath`.
   #
-  #   make_ensembl_to_symbol:   if TRUE, will create a [ENSEMBL ID, Gene Symbol] 
-  #                             dataframe and return it as the third item in the returned
-  #                             list. Assumes that the ENSEMBL IDs are the row names of the
-  #                             `raw.data` dataframe, and that the dataframe has a "Symbol" column.
-  #                           
+  #   make_ensembl_to_symbol:   (optional) if TRUE, will create a [ENSEMBL ID, Gene Symbol] 
+  #                             dataframe and include it in the returned list. 
+  #                             Assumes that the ENSEMBL IDs are the row names of the
+  #                             `raw.data` dataframe.
   #                             if FALSE, the third item in the returned list will be NA.
-  #                             
-  #                             default = TRUE.
+  #                             defaults to FALSE.
   #
-  #   makeplots:  indicates whether to produce exploratory plots or not.
+  #   gene_symbol_column: (optional) string name of the column containing gene symbols.
+  #                       defaults to NA.
   #
-  #                 default = TRUE.
+  #   make_histogram, make_boxplot: (optional) booleans indicates whether to produce exploratory plots or not.
+  #                 default to TRUE, TRUE.
   #
-  #   verbose:  indicator of verbosity. 
-  #
-  #               default = TRUE.
+  #   verbose: (optional) boolean indicator of verbosity. 
+  #            defaults to TRUE.
   #
   # RETURNS:
   #

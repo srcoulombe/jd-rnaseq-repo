@@ -222,12 +222,13 @@ rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
       list(
         "raw.data" = raw.data, 
         "conditions" = conditions,
-        "ENSEMBL_ID_to_Symbol": NA
+        "ENSEMBL_ID_to_Symbol" = NA
       )
     )
   }
 }
 
+# to remove
 write.gct <- function(gct, filename, check.file.extension=TRUE){
   # Save a representation of `gct` to a file, ensuring the filename has the extension .gct
   # in order to produce the DESeq2-normalized counts file (.gct) to use as input
@@ -302,6 +303,7 @@ write.gct <- function(gct, filename, check.file.extension=TRUE){
   return(filename)
 }
 
+# to remove
 write.factor.to.cls <- function(factor, filename) {
   # Save a representation of `factor` to a file which could be used as input
   # to GSEA.
@@ -579,25 +581,25 @@ library(Glimma)
 library(DESeq2)
 
 edgeR_DGE_analysis <- function( DGE_obj, design, alpha, 
-                                coef=NULL, 
-                                contrasts=NULL,
-                                useLRT=FALSE, 
-                                useQLF=FALSE, 
-                                useEXACT=TRUE,
-                                plotRejCurve=TRUE, 
-                                filtering.methods=NA, 
-                                chosen_filter=NA,
-                                quantiles=NA, 
-                                pAdjustMethod="BH", 
-                                verbose=TRUE) {
+                                coef = NULL, 
+                                contrasts = NULL,
+                                useLRT = FALSE, 
+                                useQLF = FALSE, 
+                                useEXACT = TRUE,
+                                plotRejCurve = TRUE, 
+                                filtering.methods = NA, 
+                                chosen_filter = NA,
+                                quantiles = seq(from=0.0, to=0.99, by=0.025), 
+                                pAdjustMethod = "BH", 
+                                verbose = TRUE) {
   
   if(!any(useEXACT, useLRT, useQLF)) {
     stop("at least one of `useEXACT`, `useLRT`, or `useQLF` must be TRUE")
   }
 
-  if(is.na(quantiles)) {
-    quantiles <- seq(from=0.0, to=0.99, by=0.01)
-  }
+  stopifnot(len(quantiles)>0)
+
+  quantiles <- sort(quantiles)
 
   if(is.na(filtering.methods)) {
     filtering.methods.dataframe <- data.frame(
@@ -623,10 +625,12 @@ edgeR_DGE_analysis <- function( DGE_obj, design, alpha,
   for(i in 1:dim(contrasts)[2]) {
     edger.result <- edgeR_DGE(
       DGE_obj, design, contrast=contrasts[,i], 
-      useLRT=FALSE, useQLF=FALSE, useEXACT=useEXACT
+      useLRT = useLRT, useQLF = useQLF, useEXACT = useEXACT
     )
     contrast.name <- colnames(contrasts)[i]
-    if(verbose){print(contrast.name)}
+    if(verbose){ 
+      print(paste("Ran initial edgeR analysis with contrast = ", contrast.name)) 
+    }
     
     # save a copy of the edger results obtained without any filtering
     contrastwise.output.list[[contrast.name]] <- list(
@@ -640,7 +644,7 @@ edgeR_DGE_analysis <- function( DGE_obj, design, alpha,
     title <- paste0(
       "edgeR(", 
       contrast.name, 
-      ") rejection curve (alpha=",
+      ") rejection curve (alpha; a.k.a. FDR)=",
       alpha,
       ")"
     )
@@ -795,7 +799,7 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
   }
 
   if(is.na(quantiles)) {
-    quantiles <- seq(from=0.0, to=0.99, by=0.01)
+    quantiles <- seq(from=0.0, to=0.99, by=0.025)
   }
   
   #contrastwise.standard.DESeq2.results <- list()
@@ -805,6 +809,7 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
   
   for (contrast.name in colnames(contrasts)){
     contrast.conditions <- strsplit(contrast.name, "-")[[1]]
+    
     if(verbose){print(contrast.name)}
     
     deseq2.result <- results(
@@ -903,22 +908,22 @@ design.pairs <- function(levels) {
 }
 
 independent_filtering <- function(dge_obj.with.pvalues, 
-                                  filtering.methods.dataframe,
-                                  theta=NA, 
-                                  fdr=0.05, 
-                                  showplots=TRUE, 
-                                  p.adjust_method="BH", 
-                                  title="Filtering Methods' Rejection Curves",
-                                  fromtool=NA) {
+                                  filtering.methods.dataframe = NULL,
+                                  theta = seq(from=0.0, to=0.99, by=0.025), 
+                                  fdr = 0.1, 
+                                  showplots = TRUE, 
+                                  p.adjust_method = "BH", 
+                                  title = "Filtering Methods' Rejection Curves",
+                                  fromtool = NA) {
   #
   # Wrapper function to recreate DESeq2's independent filtering code.
   #
   # PARAMETERS:
   #
-  #   dge_obj.with.pvalues: DGEList object along with a unadjPvalues field.
+  #   dge_obj.with.pvalues: ... object along with a unadjPvalues field.
   #
   #   filtering.methods.dataframe:  dataframe containing the methods to assess in the independent filtering.
-  #                                 e.g.:
+  #                                 defaults to:
   #                                    filtering.methods <- data.frame(
   #                                      'mean' = rowMeans(dge_obj$counts),
   #                                      'min' = rowMin(dge_obj$counts),
@@ -931,18 +936,24 @@ independent_filtering <- function(dge_obj.with.pvalues,
   #                                      )
   #                                    )
   #
-  #   theta: sequence ranging from [0.0, 1.0) indicating which quantiles to consider dropping.
-  #                   defaults to [0.4, 0.95] by increments of 0.01
+  #   theta: (optional) sequence ranging from [0.0, 1.0) indicating which quantiles to consider dropping.
+  #          defaults to seq(from=0.0, to=0.99, by=0.025).
   #
   #   fdr:  value for the fdr threshold.
-  #         defaults to 0.05. 
+  #         defaults to 0.1. 
   #   
   #   showplots:  boolean indicating whether to display plots or not.
   #               defaults to TRUE.
   #
-  #   p.adjust_method:  multiple-hypothesis p-value adjustment method.
+  #   p.adjust_method:  (optional) string specifying the multiple-hypothesis 
+  #                     p-value adjustment method.
   #                     gets passed onto filtered_R, see `genefilter` package.
   #                     defaults to "BH".
+  #
+  #   title: (optional) string used as title to the rejection curve plot.
+  #          defaults to 'Filtering Methods' Rejection Curves'
+  #
+  #   fromtool: string among 'deseq', 'edger' indicating which tool generated `dge_obj.with.pvalues` .
   #
   # RETURNS:
   #   
@@ -950,17 +961,13 @@ independent_filtering <- function(dge_obj.with.pvalues,
   #
   # REFERENCE:
   #   https://bioconductor.org/packages/release/bioc/vignettes/genefilter/inst/doc/independent_filtering.pdf
-  
-  if(is.na(theta)) {
-    theta <- seq(from=0.0, to=0.99, by=0.01)
-  }
-  
+    
   stopifnot(!is.na(fromtool) | !((tolower(fromtool) != "deseq") & (tolower(fromtool) != "edger")) )
-  if(is.na(filtering.methods.dataframe)) {
+  if(is.null(filtering.methods.dataframe)) {
     
     if(tolower(fromtool) == "deseq") {
       filtering.methods.dataframe <- data.frame(
-        'mean'=rowMeans(counts(dge_obj.with.pvalues, normalized=TRUE)),
+        'mean'= rowMeans(counts(dge_obj.with.pvalues, normalized=TRUE)),
         'min'= rowMin(counts(dge_obj.with.pvalues, normalized=TRUE)),
         'max'= rowMax(counts(dge_obj.with.pvalues, normalized=TRUE)),
         'median'= rowMedians(counts(dge_obj.with.pvalues, normalized=TRUE)),
@@ -978,6 +985,8 @@ independent_filtering <- function(dge_obj.with.pvalues,
       )
     }    
   }
+
+  print(tail(filtering.methods.dataframe))
   
   rejections <- sapply(
     filtering.methods.dataframe,
@@ -987,12 +996,18 @@ independent_filtering <- function(dge_obj.with.pvalues,
       theta=theta, method=p.adjust_method
     )
   )
+
+  print(typeof(rejections))
+  print(class(rejections))
+  print(dim(rejections))
+  print(tail(rejections))
   
   best.numRej.per.method <- apply(rejections, 2, max, na.rm = TRUE)
-  #relevant.quantile.per.method <- numeric(length(filtering.methods.dataframe))
-  #relevant.threshold.per.method <- numeric(length(filtering.methods.dataframe))
+  print(best.numRej.per.method)
+
   relevant.quantile.per.method <- list()
   relevant.threshold.per.method <- list()
+
   for(i in 1:length(filtering.methods.dataframe)) {
     # i-th element of `u1` squared into `i`-th position of `usq`
     q = theta[ which(rejections[,i] == max(rejections[,i])) ][1]
@@ -1002,12 +1017,13 @@ independent_filtering <- function(dge_obj.with.pvalues,
     relevant.quantile.per.method[filter_name] = q
     relevant.column <- filtering.methods.dataframe[,filter_name]
     relevant.threshold.per.method[filter_name] = quantile(relevant.column,q)
-    
   }
+
   if(showplots==TRUE) {
     colors=brewer.pal(ncol(filtering.methods.dataframe), "Set1")
+    
     matplot(theta, rejections, type='l', lty=1, col=colors, 
-            lwd=2, xlab=expression(theta), ylab="Rejections", 
+            lwd=2, xlab=expression(theta), ylab=paste("Rejections", "(number of DEGs)", sep='\n'), 
             main=title)
     legend("bottomleft", legend=colnames(filtering.methods.dataframe), fill=colors)
   }

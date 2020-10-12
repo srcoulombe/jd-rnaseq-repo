@@ -7,7 +7,8 @@ prepareREnvironment <- function(
             "tidyr",
             "dplyr",
             "reshape2",
-            "RColorBrewer"
+            "RColorBrewer",
+            "FactoMineR"
         ),
         BiocDependencies = c(
             "genefilter",

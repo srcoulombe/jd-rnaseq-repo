@@ -34,7 +34,9 @@ CRAN_dependencies = c(
   "dplyr",
   "reshape2",
   "factoextra",
-  "RColorBrewer"
+  "RColorBrewer",
+  "ggplot2",
+  "ggpubr"
 )
 
 ## Now load or install & load all
@@ -764,12 +766,13 @@ edgeR_DGE <- function(DGE_obj,
 DESeq2_DGE_analysis <- function(DESeq2_dataset, 
                                 alpha, 
                                 contrasts, 
-                                plotRejCurve=TRUE, 
-                                filtering.methods=NA, 
-                                quantiles=NA, 
-                                chosen_filter=NA, 
-                                pAdjustMethod="BH", 
-                                verbose=FALSE) {
+                                showplots = TRUE, 
+                                filtering.methods = NA, 
+                                quantiles = seq(from=0.0, to=0.99, by=0.025), 
+                                chosen_filter = "mean", 
+                                pAdjustMethod = "BH", 
+                                lfcThreshold = 0,
+                                verbose = FALSE) {
   # PARAMETERS:
   #
   #   DESeq2_dataset:  DESeqDataSet object on which to perform the statistical tests.
@@ -789,108 +792,113 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
   # TODO:
   #   passing more kwargs to the DESeq2 functions
   
-  DESeq2_dataset <- estimateSizeFactors(DESeq2_dataset)
+  #DESeq2_dataset <- estimateSizeFactors(DESeq2_dataset)
+  DESeq2_dataset <- DESeq(DESeq2_dataset)
   DESeq2.out <- DESeq2_dataset
-  DESeq2.out <- DESeq(DESeq2_dataset)
+
   if(is.na(filtering.methods)) { 
     filtering.methods.dataframe <- data.frame(
       'mean'=rowMeans(counts(DESeq2_dataset, normalized=TRUE)),
-      'min'= rowMin(counts(DESeq2_dataset, normalized=TRUE)),
-      'max'= rowMax(counts(DESeq2_dataset, normalized=TRUE)),
+      #'min'= rowMin(counts(DESeq2_dataset, normalized=TRUE)),
+      #'max'= rowMax(counts(DESeq2_dataset, normalized=TRUE)),
       'median'= rowMedians(counts(DESeq2_dataset, normalized=TRUE)),
-      'secondlargest'= apply(counts(DESeq2_dataset, normalized=TRUE), 1,  function(row) sort(row, partial=length(row)-1)[length(row)-1])
+      #'secondlargest'= apply(counts(DESeq2_dataset, normalized=TRUE), 1,  function(row) sort(row, partial=length(row)-1)[length(row)-1])
     )
   } else {
     filtering.methods.dataframe <- filtering.methods
   }
 
-  if(is.na(quantiles)) {
-    quantiles <- seq(from=0.0, to=0.99, by=0.025)
-  }
-  
-  #contrastwise.standard.DESeq2.results <- list()
-  #contrastwise.IF.DESeq2.results <- list()
+  stopifnot(chosen_filter %in% colnames(filtering.methods.dataframe))
+
   contrastwise.output.list <- list()
   contrastwise.output.list[["DGE_obj"]] <- DESeq2.out
   
+  # for every specified contrast, 
+  # run IF on DESeq results
   for (contrast.name in colnames(contrasts)){
     contrast.conditions <- strsplit(contrast.name, "-")[[1]]
     
-    if(verbose){print(contrast.name)}
+    if(verbose){
+      print(contrast.name)
+    }
     
+    # get and save IF'd results using the chosen filter
     deseq2.result <- results(
       DESeq2.out, 
-      contrast=c("condition", contrast.conditions[1], contrast.conditions[2]),
-      alpha=alpha,
-      pAdjustMethod=pAdjustMethod
+      contrast = c("condition", contrast.conditions[1], contrast.conditions[2]),
+      alpha = alpha,
+      theta = quantiles, 
+      pAdjustMethod = pAdjustMethod,
+      lfcThreshold = lfcThreshold,
+      independentFiltering = TRUE,
+      filter = filtering.methods.dataframe[[chosen_filter]]
     )
-    #contrastwise.standard.DESeq2.results[[contrast.name]] <- deseq2.result
+
+    if(verbose) {
+      print(summary(deseq2.result))
+    }
+
     contrastwise.output.list[[contrast.name]] <- list(
-      "standard.DESeq2.results"=deseq2.result
+      "DESeq2.results" = deseq2.result
     )
-    
-    if(plotRejCurve) {
-      plottitle <- paste0(
-        "DESeq2(", 
-        contrast.name, 
-        ") rejection curve (alpha=",
-        alpha,
-        ")\n#rej=",
-        sum(deseq2.result['padj'][[1]] < fdr, na.rm=TRUE),
-        ", threshold=",
-        round(metadata(deseq2.result)$filterThreshold,2)
-      )
-      
+
+    title <- paste0(
+      "DESeq2(", 
+      contrast.name, 
+      ") rejection curve (alpha (a.k.a. FDR) = ",
+      alpha,
+      ")\n# rejections (# DEGs) = ",
+      sum(deseq2.result['padj'][[1]] < alpha, na.rm=TRUE),
+      ", threshold = ",
+      round(metadata(deseq2.result)$filterThreshold,2)
+    )
+
+    # plot the rejection curve for the chosen filter
+    if(showplots) {      
       plot(
         metadata(deseq2.result)$filterNumRej, 
         type="b", 
         ylab="number of rejections",
         xlab="quantiles of filter", 
-        main=plottitle
+        main=title
       )
       lines(
         metadata(deseq2.result)$lo.fit, 
         col="red"
       )
       abline(v=metadata(deseq2.result)$filterTheta)
+
+      plotMA(
+        lfcShrink(DESeq2_dataset, coef=contrast.name), 
+        ylim=c(-2,2)
+      )
     }
-    
-    title <- paste0(
-      "DESeq2(", 
-      contrast.name, 
-      ") rejection curve (alpha=",
-      alpha,
-      ")\n#rej=",
-      sum(deseq2.result['padj'][[1]] < fdr, na.rm=TRUE),
-      ", threshold=",
-      round(metadata(deseq2.result)$filterThreshold,2)
-    )
+
     contrast.result.copy <- deseq2.result
     contrast.result.copy$unadjPvalues <- deseq2.result$pvalue
     IF.DESeq2.results <- independent_filtering(
       contrast.result.copy,
       filtering.methods.dataframe,
-      theta=quantiles,
-      title=title,
-      fdr=fdr,
-      showplots=TRUE, # still need to work on this functionality
-      fromtool="deseq"
+      theta = quantiles,
+      title = title,
+      fdr = alpha,
+      showplots = TRUE, # still need to work on this functionality
+      fromtool = "deseq"
     )
     #contrastwise.IF.DESeq2.results[[contrast.name]] <- IF.DESeq2.results
     # save a copy of the independent filtering results
-    contrastwise.output.list[[contrast.name]][["IF.metadata"]] <- IF.DESeq2.results
-    
+    contrastwise.output.list[[contrast.name]][["DESeq2.IF.results"]] <- IF.DESeq2.results
+
     ##
-    if(!is.na(chosen_filter)){
-      contrastwise.output.list[[contrast.name]][["IF.results"]] <- results(
-        DESeq2.out, 
-        contrast=c("condition", contrast.conditions[1], contrast.conditions[2]),
-        alpha=alpha,
-        pAdjustMethod=pAdjustMethod,
-        filter=filtering.methods.dataframe[[chosen_filter]]
-      )
-      
-    }    
+    #if(!is.na(chosen_filter)){
+    #  contrastwise.output.list[[contrast.name]][["IF.results"]] <- results(
+    #    DESeq2.out, 
+    #    contrast=c("condition", contrast.conditions[1], contrast.conditions[2]),
+    #    alpha=alpha,
+    #    pAdjustMethod=pAdjustMethod,
+    #    filter=filtering.methods.dataframe[[chosen_filter]]
+    #  )
+    #}    
   }
   return(contrastwise.output.list)
 }
@@ -920,7 +928,8 @@ independent_filtering <- function(dge_obj.with.pvalues,
                                   showplots = TRUE, 
                                   p.adjust_method = "BH", 
                                   title = "Filtering Methods' Rejection Curves",
-                                  fromtool = NA) {
+                                  fromtool = NA,
+                                  genes_of_interest = c()) {
   #
   # Wrapper function to recreate DESeq2's independent filtering code.
   #
@@ -970,7 +979,6 @@ independent_filtering <- function(dge_obj.with.pvalues,
     
   stopifnot(!is.na(fromtool) | !((tolower(fromtool) != "deseq") & (tolower(fromtool) != "edger")) )
   if(is.null(filtering.methods.dataframe)) {
-    
     if(tolower(fromtool) == "deseq") {
       filtering.methods.dataframe <- data.frame(
         'mean'= rowMeans(counts(dge_obj.with.pvalues, normalized=TRUE)),
@@ -981,19 +989,31 @@ independent_filtering <- function(dge_obj.with.pvalues,
       )
     }
 
-    else {
+    else { # are these normalized?
       filtering.methods.dataframe <- data.frame(
-        'mean'=rowMeans(dge_obj.with.pvalues$counts),
-        'min'= rowMin(dge_obj.with.pvalues$counts),
-        'max'= rowMax(dge_obj.with.pvalues$counts),
-        'median'= rowMedians(dge_obj.with.pvalues$counts),
-        'secondlargest'= apply(dge_obj.with.pvalues$counts, 1,  function(row) sort(row, partial=length(row)-1)[length(row)-1])
+        'mean' = rowMeans(dge_obj.with.pvalues$counts),
+        'min' = rowMin(dge_obj.with.pvalues$counts),
+        'max' = rowMax(dge_obj.with.pvalues$counts),
+        'median' = rowMedians(dge_obj.with.pvalues$counts),
+        'secondlargest' = apply(dge_obj.with.pvalues$counts, 1,  function(row) sort(row, partial=length(row)-1)[length(row)-1])
       )
     }    
   }
-
-  print(tail(filtering.methods.dataframe))
   
+  # check that all genes of interest are present
+  if(!is.null(genes_of_interest)){  
+    absent <- genes_of_interest[ !(genes_of_interest %in% rownames(filtering.methods.dataframe)) ]
+    if(length(absent) > 0) {
+      stop(
+        paste0(
+          "the following genes were not found in the row names:", 
+          paste0(absent, sep='\n'),
+          sep='\n'
+        )
+      )
+    }
+  }
+
   rejections <- sapply(
     filtering.methods.dataframe,
     function(f) filtered_R(
@@ -1003,19 +1023,28 @@ independent_filtering <- function(dge_obj.with.pvalues,
     )
   )
 
-  print(typeof(rejections))
-  print(class(rejections))
-  print(dim(rejections))
-  print(tail(rejections))
+  genes_of_interest_survival <- list()
+  if(!is.null(genes_of_interest)) {
+    goi_rows <- which(rownames(filtering.methods.dataframe) %in% goi)
+    for(i in 1:length(filtering.methods.dataframe)) {
+      statistic_name <- colnames(filtering.methods.dataframe)[i]
+      statistic_values <- filtering.methods.dataframe[,i]
+      ecdf_fun <- ecdf(sort(statistic_values))
+      goi_values <- statistic_values[goi_rows]
+      goi_statistic_percentiles <- ecdf_fun(goi_values)
+      goi_df <- cbind(goi_values, goi_statistic_percentiles)
+      rownames(goi_df) <- genes_of_interest 
+      colnames(goi_df) <- c(paste0(statistic_name, " statistic filter value"), "percentile value")
+      print(goi_df)
+      genes_of_interest_survival[[statistic_name]] <- goi_df
+    }
+  }
   
   best.numRej.per.method <- apply(rejections, 2, max, na.rm = TRUE)
-  print(best.numRej.per.method)
-
   relevant.quantile.per.method <- list()
   relevant.threshold.per.method <- list()
 
   for(i in 1:length(filtering.methods.dataframe)) {
-    # i-th element of `u1` squared into `i`-th position of `usq`
     q = theta[ which(rejections[,i] == max(rejections[,i])) ][1]
     # the extra [1] is to get the lowest quantile that yielded the max number of rejections
     # to filter out fewer genes
@@ -1027,23 +1056,68 @@ independent_filtering <- function(dge_obj.with.pvalues,
 
   if(showplots==TRUE) {
     colors=brewer.pal(ncol(filtering.methods.dataframe), "Set1")
+    if(!is.null(genes_of_interest)) {
+       par(mfrow=c(1+NCOL(filtering.methods.dataframe),1))
+    }
+    matplot(
+      theta, 
+      rejections, 
+      type='l', 
+      lty=1, 
+      col=colors, 
+      lwd=2, 
+      xlab=paste0(expression(theta), " (filter's percentile threshold)"),
+      ylab="Rejections (number of DEGs)", 
+      main=title
+    )
     
-    matplot(theta, rejections, type='l', lty=1, col=colors, 
-            lwd=2, xlab=expression(theta), ylab=paste("Rejections", "(number of DEGs)", sep='\n'), 
-            main=title)
-    legend("bottomleft", legend=colnames(filtering.methods.dataframe), fill=colors)
+    for(i in 1:dim(relevant.quantile.per.method)[2]) {
+      abline(
+        v = relevant.quantile.per.method[colnames(relevant.quantile.per.method)[i]],
+        col = colors[i]
+      )
+    }
+    
+    legend(
+      "bottomleft",
+      legend = make.legend(best.numRej.per.method, relevant.quantile.per.method, relevant.threshold.per.method),
+      #legend=colnames(filtering.methods.dataframe), 
+      fill=colors
+    )
+    #if(!is.null(genes_of_interest)) {
+    #  for(r in 1:NCOL(filtering.methods.dataframe)+1) {
+    #    plot(
+    #      0,
+    #      type="n", 
+    #      xlim=c(0.0,1.1), 
+    #      ylim=c(0,length(genes_of_interest)+1), 
+    #      xlab="X Label", 
+    #      ylab="Y Label", 
+    #      main="Survival of Genes Of Interest"
+    #    )
+    #    statistic_name <- colnames(filtering.methods.dataframe)[r]
+    #    survival_data <- genes_of_interest_survival[[statistic_name]]
+    #    for(i in 1:length(genes_of_interest)){
+    #      lines(
+    #        0:survival_data[genes_of_interest[i],"percentile value"], 
+    #        rep(i, a[i,2]), 
+    #        type="l", col=i
+    #      )
+    #    }
+    #  }
+    #}
   }
-  #print(rejections)
-  #print(relevant.quantile.per.method)
-  #print(relevant.threshold.per.method)
-  return.list <- list(
+
+  return(
+    list(
     "rejections" = rejections, 
     "best.numRej.per.method" = best.numRej.per.method,
     "relevant.quantile.per.method" = relevant.quantile.per.method,
     "relevant.threshold.per.method" = relevant.threshold.per.method,
-    "filtering.methods" = filtering.methods.dataframe
+    "filtering.methods" = filtering.methods.dataframe,
+    "genes_of_interest_survival" = genes_of_interest_survival
   )
-  return(return.list)
+  )
   
 }
 
@@ -1093,7 +1167,7 @@ plotLog1PReadCountsDistribution <- function(raw_reads_dataframe,
   #   Nothing.
 
 
-  if is.na(conditions) {
+  if(is.na(conditions)) {
     conditions <- sub(
       "\\_.*", "",
       colnames(raw_reads_dataframe)
@@ -1263,6 +1337,25 @@ plotChromoMap <- function(DEG_gene_names, reference_file="UCSC_hg38.ncbiRefSeq.t
   kpPlotMarkers(kp, data=gr, 
                 labels=gr$name, text.orientation = "horizontal",
                 r1=0.5, cex=0.6, adjust.label.position = TRUE)
+}
+
+make.legend <- function(named_num, quantile_df, threshold_df) {
+  stopifnot( all(names(named_num) == colnames(quantile_df)) & all(colnames(threshold_df) == names(named_num)) )
+  out <- c()
+  for(i in 1:length(named_num)) {
+    out <- c(
+      out, 
+      paste(
+        names(named_num)[i], ": ", 
+        named_num[i], 
+        " DEGs; q: ", 
+        quantile_df[[names(named_num)[i]]],
+        ", read threshold: ",
+        threshold_df[[names(named_num)[i]]]
+      )
+    )
+  }
+  return(out)
 }
 ### end of visualization.R ###
 

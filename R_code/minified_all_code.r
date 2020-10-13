@@ -766,7 +766,7 @@ edgeR.pairwise.explo <- function( edgeR_dataset,
     stop("chosen_filter_threshold should be a function.")
   }
   if(!is.na(genes_of_interest)) {
-    missing <- !(genes_of_interest %in% names(DESeq2_dataset))
+    missing <- !(genes_of_interest %in% names(edgeR_dataset))
     if(any(missing)) {
       stop(
         paste0(
@@ -847,9 +847,9 @@ edgeR.pairwise.explo <- function( edgeR_dataset,
         test.out,
         n = dim(edgeR_dataset)[1],
         adjust.method = pAdjustMethod,
-        p.value = alpha
+        p.value = 1.0
       )
-      nRej <- dim(filtered_edgeR_results)[1]
+      nRej <- count(filtered_edgeR_results[,"FDR"] <= alpha)
       numRej.per.method.and.quantile[q, filter_name] <- nRej
       if(nRej > best.numRej.so.far) {
         best.numRej.so.far <- nRej

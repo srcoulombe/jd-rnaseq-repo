@@ -849,7 +849,7 @@ edgeR.pairwise.explo <- function( edgeR_dataset,
         adjust.method = pAdjustMethod,
         p.value = 1.0
       )
-      nRej <- count(filtered_edgeR_results[,"FDR"] <= alpha)
+      nRej <- count(filtered_edgeR_results$FDR <= alpha)
       numRej.per.method.and.quantile[q, filter_name] <- nRej
       if(nRej > best.numRej.so.far) {
         best.numRej.so.far <- nRej

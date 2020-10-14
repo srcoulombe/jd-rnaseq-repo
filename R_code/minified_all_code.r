@@ -472,6 +472,17 @@ convert.names <- function(df.with.rownames,
   return(out)
 }
 
+merge_dfs <- function(a,b) {
+    a_ <- as.data.frame(a)
+    b_ <- as.data.frame(b)
+    stopifnot(dim(a_)[1] >= dim(b_)[1])
+    stopifnot(all(rownames(b_) %in% rownames(a_)))
+    merged <- merge(a_, b_, by = "row.names", all = T)
+    rownames(merged) <- rownames(a_)
+    merged$Row.names <- NULL
+    return(merged)
+}
+
 DESeq2.pairwise.explo <- function(DESeq2_dataset,
                             alpha = 0.1, 
                             test = "Wald", 

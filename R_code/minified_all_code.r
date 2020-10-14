@@ -478,7 +478,7 @@ merge_dfs <- function(a,b) {
     stopifnot(dim(a_)[1] >= dim(b_)[1])
     stopifnot(all(rownames(b_) %in% rownames(a_)))
     merged <- merge(a_, b_, by = "row.names", all = T)
-    rownames(merged) <- rownames(a_)
+    rownames(merged) <- merged$Row.names
     merged$Row.names <- NULL
     return(merged)
 }

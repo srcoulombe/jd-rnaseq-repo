@@ -795,12 +795,18 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
   DESeq2_dataset <- DESeq(DESeq2_dataset)
   DESeq2.out <- DESeq2_dataset
 
+  print("got here")
+  means = rowMeans(counts(DESeq2_dataset, normalized=TRUE))
+  medians = rowMedians(counts(DESeq2_dataset, normalized=TRUE))
+  print("got there")
+  
+  
   if(is.na(filtering.methods)) { 
     filtering.methods.dataframe <- data.frame(
-      'mean'=rowMeans(counts(DESeq2_dataset, normalized=TRUE)),
+      'mean'=means,
       #'min'= rowMin(counts(DESeq2_dataset, normalized=TRUE)),
       #'max'= rowMax(counts(DESeq2_dataset, normalized=TRUE)),
-      'median'= rowMedians(counts(DESeq2_dataset, normalized=TRUE)),
+      'median'=medians,
       #'secondlargest'= apply(counts(DESeq2_dataset, normalized=TRUE), 1,  function(row) sort(row, partial=length(row)-1)[length(row)-1])
     )
   } else {

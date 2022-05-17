@@ -13,7 +13,7 @@ import pandas as pd
 try:
     import matplotlib.pyplot as plt 
 except ModuleNotFoundError:
-    print("Installing maptlotlib with pip...")
+    print("Installing matplotlib with pip...; if this doesn't work, run `!pip uninstall -y matplotlib` and then `!pip install matplotlib` directly in a Colab cell")
     pip_version = list(map(int, pip.__version__.split(".")))
     if pip_version[0] < 20:
         os.system('pip install matplotlib')
@@ -24,13 +24,12 @@ except ModuleNotFoundError:
 try:
     from supervenn import supervenn
 except ModuleNotFoundError:
-    print("Installing supervenn with pip...")
+    print("Installing supervenn with pip...; if this doesn't work, run `!pip uninstall -y supervenn` and then `!pip install supervenn` directly in a Colab cell")
     pip_version = list(map(int, pip.__version__.split(".")))
     if pip_version[0] < 20:
         os.system('pip install supervenn')
     else:
         pip.main(['install', '--user', 'supervenn'])
-        subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'supervenn'])
     from supervenn import supervenn
 
 # TODO: 1. add a filename filter for load_files_from_dir

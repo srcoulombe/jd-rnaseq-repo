@@ -1060,6 +1060,9 @@ independent_filtering <- function(dge_obj.with.pvalues,
     relevant.threshold.per.method[filter_name] = quantile(relevant.column,q)
   }
 
+  print("relevant.quantile.per.method")
+  print(relevant.quantile.per.method)
+
   if(showplots==TRUE) {
     colors=brewer.pal(ncol(filtering.methods.dataframe), "Set1")
     if(!is.null(genes_of_interest)) {

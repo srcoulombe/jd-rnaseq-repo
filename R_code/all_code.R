@@ -1080,7 +1080,7 @@ independent_filtering <- function(dge_obj.with.pvalues,
       main=title
     )
     
-    for(i in 1:dim(relevant.quantile.per.method)[2]) {
+    for(i in 1:length(relevant.quantile.per.method)) {
       abline(
         v = relevant.quantile.per.method[colnames(relevant.quantile.per.method)[i]],
         col = colors[i]

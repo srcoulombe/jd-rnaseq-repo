@@ -807,7 +807,7 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
       mean=means,
       #'min'= rowMin(counts(DESeq2_dataset, normalized=TRUE)),
       #'max'= rowMax(counts(DESeq2_dataset, normalized=TRUE)),
-      median=medians,
+      median=medians
       #'secondlargest'= apply(counts(DESeq2_dataset, normalized=TRUE), 1,  function(row) sort(row, partial=length(row)-1)[length(row)-1])
     )
   } else {

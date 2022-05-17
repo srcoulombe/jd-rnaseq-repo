@@ -818,7 +818,7 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
   # for every specified contrast, 
   # run IF on DESeq results
   for (contrast.name in colnames(contrasts)){
-    contrast.conditions <- strsplit(contrast.name, "-")[[1]]
+    contrast.conditions <- strsplit(contrast.name, "_")[[1]]
     
     if(verbose){
       print(contrast.name)
@@ -827,7 +827,7 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
     # get and save IF'd results using the chosen filter
     deseq2.result <- results(
       DESeq2.out,
-      contrast = contrast.name,
+      contrast = c(contrast.conditions[1], contrast.conditions[2], contrast.conditions[4]),
       #contrast = c("condition", contrast.conditions[1], contrast.conditions[2]),
       alpha = alpha,
       theta = quantiles, 

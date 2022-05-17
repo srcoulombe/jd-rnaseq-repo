@@ -919,7 +919,7 @@ design.pairs <- function(levels) {
       k <- k+1
       design[i,k] <- 1
       design[j,k] <- -1
-      colnames(design)[k] <- paste(levels[i],"-",levels[j],sep="")
+      colnames(design)[k] <- paste("condition","_",levels[i],"_vs_",levels[j],sep="")
     }
   return(design)
 }

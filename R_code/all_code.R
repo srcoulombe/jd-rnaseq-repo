@@ -908,6 +908,8 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
 }
 
 design.pairs <- function(levels) {
+  levels <- sort(levels)
+  print(levels)
   # credits to G. Smyth
   # https://support.bioconductor.org/p/9228/#9254
   n <- length(levels)

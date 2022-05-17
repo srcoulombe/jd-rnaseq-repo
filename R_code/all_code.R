@@ -604,7 +604,7 @@ edgeR_DGE_analysis <- function( DGE_obj, design, alpha,
     stop("at least one of `useEXACT`, `useLRT`, or `useQLF` must be TRUE")
   }
 
-  stopifnot(len(quantiles)>0)
+  stopifnot(length(quantiles)>0)
 
   quantiles <- sort(quantiles)
 

@@ -2,6 +2,8 @@
 import os
 import re 
 import pip
+import sys
+import subprocess
 from typing import Tuple, Mapping, List, Union
 
 # external dependencies; already installed in Google colab environment
@@ -28,6 +30,7 @@ except ModuleNotFoundError:
         os.system('pip install supervenn')
     else:
         pip.main(['install', '--user', 'supervenn'])
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'supervenn'])
     from supervenn import supervenn
 
 # TODO: 1. add a filename filter for load_files_from_dir

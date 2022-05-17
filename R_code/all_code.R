@@ -181,7 +181,7 @@ rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
   }
   
   # positive column selection
-  if(keep_columns != "all"){
+  if(all(keep_columns != "all")){
     if(verbose) {
       print("Keeping the following columns in raw counts matrix:")
       print(keep_columns)

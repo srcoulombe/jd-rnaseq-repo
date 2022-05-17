@@ -44,7 +44,7 @@ package.check <- lapply(
   Bioc_dependencies,
   FUN = function(x) {
     if (!require(x, character.only = TRUE)) {
-      BiocManager::install(x)
+      BiocManager::install(x, version=3.10)
       library(x, character.only = TRUE)
     }
   }

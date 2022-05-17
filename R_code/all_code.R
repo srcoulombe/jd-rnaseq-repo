@@ -872,7 +872,7 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
       print(resultsNames(DESeq2_dataset))
       print(contrast.name)
       plotMA(
-        lfcShrink(DESeq2_dataset, contrast=contrast.name), 
+        lfcShrink(DESeq2_dataset, coef=contrast.name), 
         ylim=c(-2,2)
       )
     }

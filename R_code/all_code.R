@@ -795,12 +795,8 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
   DESeq2_dataset <- DESeq(DESeq2_dataset)
   DESeq2.out <- DESeq2_dataset
 
-  print("got here")
   means = rowMeans(counts(DESeq2_dataset, normalized=TRUE))
   medians = rowMedians(counts(DESeq2_dataset, normalized=TRUE))
-  print("got there")
-  print(length(means))
-  print(length(medians))
   
   if(is.na(filtering.methods)) { 
     filtering.methods.dataframe <- data.frame(
@@ -873,7 +869,7 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
         col="red"
       )
       abline(v=metadata(deseq2.result)$filterTheta)
-
+      print(resultsNames(DESeq2_dataset))
       plotMA(
         lfcShrink(DESeq2_dataset, contrast=contrasts), 
         ylim=c(-2,2)

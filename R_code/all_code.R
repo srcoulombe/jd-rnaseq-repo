@@ -826,8 +826,9 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
     
     # get and save IF'd results using the chosen filter
     deseq2.result <- results(
-      DESeq2.out, 
-      contrast = c("condition", contrast.conditions[1], contrast.conditions[2]),
+      DESeq2.out,
+      contrast = contrast.name,
+      #contrast = c("condition", contrast.conditions[1], contrast.conditions[2]),
       alpha = alpha,
       theta = quantiles, 
       pAdjustMethod = pAdjustMethod,

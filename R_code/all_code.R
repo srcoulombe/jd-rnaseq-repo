@@ -6,7 +6,7 @@
 ## start of installation block ##
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
-BiocManager::install(version = "3.10")
+BiocManager::install()
 ## If a package is installed, it will be loaded. If any 
 ## are not, the missing package(s) will be installed 
 ## from CRAN and then loaded.
@@ -14,7 +14,6 @@ BiocManager::install(version = "3.10")
 ## First specify the packages of interest from both BiocManager and CRAN
 Bioc_dependencies = c(
   "DESeq2", 
-  "DESeq",
   "HTSFilter",
   "genefilter",
   "edgeR",
@@ -44,7 +43,7 @@ package.check <- lapply(
   Bioc_dependencies,
   FUN = function(x) {
     if (!require(x, character.only = TRUE)) {
-      BiocManager::install(x, version="3.10")
+      BiocManager::install(x)
       library(x, character.only = TRUE)
     }
   }

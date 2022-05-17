@@ -875,7 +875,7 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
       abline(v=metadata(deseq2.result)$filterTheta)
 
       plotMA(
-        lfcShrink(DESeq2_dataset, coef=contrast.name), 
+        lfcShrink(DESeq2_dataset, contrast=contrast), 
         ylim=c(-2,2)
       )
     }

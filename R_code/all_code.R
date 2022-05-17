@@ -6,7 +6,7 @@
 ## start of installation block ##
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
-
+BiocManager::install(version = "3.10")
 ## If a package is installed, it will be loaded. If any 
 ## are not, the missing package(s) will be installed 
 ## from CRAN and then loaded.
@@ -44,7 +44,7 @@ package.check <- lapply(
   Bioc_dependencies,
   FUN = function(x) {
     if (!require(x, character.only = TRUE)) {
-      BiocManager::install(x, version=3.10)
+      BiocManager::install(x, version="3.10")
       library(x, character.only = TRUE)
     }
   }

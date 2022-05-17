@@ -799,14 +799,15 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
   means = rowMeans(counts(DESeq2_dataset, normalized=TRUE))
   medians = rowMedians(counts(DESeq2_dataset, normalized=TRUE))
   print("got there")
-  
+  print(length(means))
+  print(length(medians))
   
   if(is.na(filtering.methods)) { 
     filtering.methods.dataframe <- data.frame(
-      'mean'=means,
+      mean=means,
       #'min'= rowMin(counts(DESeq2_dataset, normalized=TRUE)),
       #'max'= rowMax(counts(DESeq2_dataset, normalized=TRUE)),
-      'median'=medians,
+      median=medians,
       #'secondlargest'= apply(counts(DESeq2_dataset, normalized=TRUE), 1,  function(row) sort(row, partial=length(row)-1)[length(row)-1])
     )
   } else {

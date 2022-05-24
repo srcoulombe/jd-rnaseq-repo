@@ -426,7 +426,7 @@ save.spreadsheet <- function( DESeq2.results,
   #
   #
   #
-
+  print("in save.spreadsheet")
   if(dir.exists(file.path(mainDir, subDir))) {
     print(
       paste0(
@@ -443,8 +443,9 @@ save.spreadsheet <- function( DESeq2.results,
   
   all.dataframes <- list()
   for (contrast.name in colnames(contrasts)) {
+    print(contrast.name)
     contrast.conditions <- strsplit(contrast.name, "-")[[1]]
-
+    print(contrast.conditions)
     relevant.columns <- lapply(contrast.conditions, grepl, colnames(raw.counts.data$raw.data))
     relevant.columns.mask <- sapply(transpose(relevant.columns), any) # column-wise OR
     relevant.columns <- colnames(raw.counts.data$raw.data)[relevant.columns.mask] # from indices to names
@@ -472,7 +473,8 @@ save.spreadsheet <- function( DESeq2.results,
       as.data.frame(relevant.DESeq2.results),
       as.data.frame(relevant.edger.results)
     )
-    
+    print("made all_results")
+    print(dim(all_results))
     for(i in 1:length(all_results)){
       all_results[[i]]$ROWNAMES  <- rownames(all_results[[i]])
     }

@@ -6,7 +6,7 @@
 ## start of installation block ##
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
-BiocManager::install(version = "3.10")
+BiocManager::install()
 ## If a package is installed, it will be loaded. If any 
 ## are not, the missing package(s) will be installed 
 ## from CRAN and then loaded.
@@ -14,7 +14,6 @@ BiocManager::install(version = "3.10")
 ## First specify the packages of interest from both BiocManager and CRAN
 Bioc_dependencies = c(
   "DESeq2", 
-  "DESeq",
   "HTSFilter",
   "genefilter",
   "edgeR",
@@ -44,7 +43,7 @@ package.check <- lapply(
   Bioc_dependencies,
   FUN = function(x) {
     if (!require(x, character.only = TRUE)) {
-      BiocManager::install(x, version="3.10")
+      BiocManager::install(x)
       library(x, character.only = TRUE)
     }
   }
@@ -182,7 +181,7 @@ rawCountsMatrix_to_dataframe <- function( rawCountsMatrix_filepath,
   }
   
   # positive column selection
-  if(keep_columns != "all"){
+  if(all(keep_columns != "all")){
     if(verbose) {
       print("Keeping the following columns in raw counts matrix:")
       print(keep_columns)
@@ -427,7 +426,7 @@ save.spreadsheet <- function( DESeq2.results,
   #
   #
   #
-
+  print("in save.spreadsheet")
   if(dir.exists(file.path(mainDir, subDir))) {
     print(
       paste0(
@@ -444,8 +443,11 @@ save.spreadsheet <- function( DESeq2.results,
   
   all.dataframes <- list()
   for (contrast.name in colnames(contrasts)) {
-    contrast.conditions <- strsplit(contrast.name, "-")[[1]]
-
+    print(contrast.name)
+    contrast.conditions <- strsplit(contrast.name, "_")[[1]]
+    print(contrast.conditions)
+    contrast.conditions <- c(contrast.conditions[2], contrast.conditions[4])
+    print(contrast.conditions)
     relevant.columns <- lapply(contrast.conditions, grepl, colnames(raw.counts.data$raw.data))
     relevant.columns.mask <- sapply(transpose(relevant.columns), any) # column-wise OR
     relevant.columns <- colnames(raw.counts.data$raw.data)[relevant.columns.mask] # from indices to names
@@ -473,7 +475,8 @@ save.spreadsheet <- function( DESeq2.results,
       as.data.frame(relevant.DESeq2.results),
       as.data.frame(relevant.edger.results)
     )
-    
+    print("made all_results")
+    print(dim(all_results))
     for(i in 1:length(all_results)){
       all_results[[i]]$ROWNAMES  <- rownames(all_results[[i]])
     }
@@ -605,7 +608,7 @@ edgeR_DGE_analysis <- function( DGE_obj, design, alpha,
     stop("at least one of `useEXACT`, `useLRT`, or `useQLF` must be TRUE")
   }
 
-  stopifnot(len(quantiles)>0)
+  stopifnot(length(quantiles)>0)
 
   quantiles <- sort(quantiles)
 
@@ -796,12 +799,15 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
   DESeq2_dataset <- DESeq(DESeq2_dataset)
   DESeq2.out <- DESeq2_dataset
 
+  means = rowMeans(counts(DESeq2_dataset, normalized=TRUE))
+  medians = rowMedians(counts(DESeq2_dataset, normalized=TRUE))
+  
   if(is.na(filtering.methods)) { 
     filtering.methods.dataframe <- data.frame(
-      'mean'=rowMeans(counts(DESeq2_dataset, normalized=TRUE)),
+      mean=means,
       #'min'= rowMin(counts(DESeq2_dataset, normalized=TRUE)),
       #'max'= rowMax(counts(DESeq2_dataset, normalized=TRUE)),
-      'median'= rowMedians(counts(DESeq2_dataset, normalized=TRUE)),
+      median=medians
       #'secondlargest'= apply(counts(DESeq2_dataset, normalized=TRUE), 1,  function(row) sort(row, partial=length(row)-1)[length(row)-1])
     )
   } else {
@@ -816,7 +822,7 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
   # for every specified contrast, 
   # run IF on DESeq results
   for (contrast.name in colnames(contrasts)){
-    contrast.conditions <- strsplit(contrast.name, "-")[[1]]
+    contrast.conditions <- strsplit(contrast.name, "_")[[1]]
     
     if(verbose){
       print(contrast.name)
@@ -824,8 +830,9 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
     
     # get and save IF'd results using the chosen filter
     deseq2.result <- results(
-      DESeq2.out, 
-      contrast = c("condition", contrast.conditions[1], contrast.conditions[2]),
+      DESeq2.out,
+      contrast = c(contrast.conditions[1], contrast.conditions[2], contrast.conditions[4]),
+      #contrast = c("condition", contrast.conditions[1], contrast.conditions[2]),
       alpha = alpha,
       theta = quantiles, 
       pAdjustMethod = pAdjustMethod,
@@ -867,11 +874,12 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
         col="red"
       )
       abline(v=metadata(deseq2.result)$filterTheta)
-
-      plotMA(
-        lfcShrink(DESeq2_dataset, coef=contrast.name), 
-        ylim=c(-2,2)
-      )
+      print(resultsNames(DESeq2_dataset))
+      print(contrast.name)
+      #plotMA(
+      #  lfcShrink(DESeq2_dataset, coef=contrast.name), 
+      #  ylim=c(-2,2)
+      #)
     }
 
     contrast.result.copy <- deseq2.result
@@ -904,6 +912,8 @@ DESeq2_DGE_analysis <- function(DESeq2_dataset,
 }
 
 design.pairs <- function(levels) {
+  levels <- sort(levels)
+  print(levels)
   # credits to G. Smyth
   # https://support.bioconductor.org/p/9228/#9254
   n <- length(levels)
@@ -916,7 +926,7 @@ design.pairs <- function(levels) {
       k <- k+1
       design[i,k] <- 1
       design[j,k] <- -1
-      colnames(design)[k] <- paste(levels[i],"-",levels[j],sep="")
+      colnames(design)[k] <- paste("condition","_",levels[i],"_vs_",levels[j],sep="")
     }
   return(design)
 }
@@ -1054,6 +1064,9 @@ independent_filtering <- function(dge_obj.with.pvalues,
     relevant.threshold.per.method[filter_name] = quantile(relevant.column,q)
   }
 
+  print("relevant.quantile.per.method")
+  print(relevant.quantile.per.method)
+
   if(showplots==TRUE) {
     colors=brewer.pal(ncol(filtering.methods.dataframe), "Set1")
     if(!is.null(genes_of_interest)) {
@@ -1071,7 +1084,7 @@ independent_filtering <- function(dge_obj.with.pvalues,
       main=title
     )
     
-    for(i in 1:dim(relevant.quantile.per.method)[2]) {
+    for(i in 1:length(relevant.quantile.per.method)) {
       abline(
         v = relevant.quantile.per.method[colnames(relevant.quantile.per.method)[i]],
         col = colors[i]

@@ -443,6 +443,7 @@ save.spreadsheet <- function( DESeq2.results,
   
   all.dataframes <- list()
   for (contrast.name in colnames(contrasts)) {
+    print("first print")
     print(contrast.name)
     contrast.conditions <- strsplit(contrast.name, "_")[[1]]
     print(contrast.conditions)

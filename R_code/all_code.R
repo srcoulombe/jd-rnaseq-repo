@@ -444,7 +444,9 @@ save.spreadsheet <- function( DESeq2.results,
   all.dataframes <- list()
   for (contrast.name in colnames(contrasts)) {
     print(contrast.name)
-    contrast.conditions <- strsplit(contrast.name, "-")[[1]]
+    contrast.conditions <- strsplit(contrast.name, "_")[[1]]
+    print(contrast.conditions)
+    contrast.conditions <- c(contrast.conditions[2], contrast.conditions[4])
     print(contrast.conditions)
     relevant.columns <- lapply(contrast.conditions, grepl, colnames(raw.counts.data$raw.data))
     relevant.columns.mask <- sapply(transpose(relevant.columns), any) # column-wise OR

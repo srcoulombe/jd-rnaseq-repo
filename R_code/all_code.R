@@ -403,11 +403,9 @@ get.conversion.map <- function( raw.counts.data,
         row.names = 1
       )
     )
+    message("Loaded map!")
     print(head(x.to.y.map))
     return(x.to.y.map)
-    
-  }, finally = {
-    message("Map loaded!")
   })
    
   rownames(x.to.y.map) <- x.to.y.map$ensembl_gene_id

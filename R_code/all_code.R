@@ -480,8 +480,7 @@ save.spreadsheet <- function( DESeq2.results,
     for(i in 1:length(all_results)){
       all_results[[i]]$ROWNAMES  <- rownames(all_results[[i]])
     }
-    print("rownames")
-    print(all_results[[1]]$ROWNAMES)
+    
     all_results <- join_all(all_results, by="ROWNAMES", type="full")
     
    
@@ -546,7 +545,7 @@ save.spreadsheet <- function( DESeq2.results,
         file=output.file.path, 
         quote=FALSE, 
         sep='\t', 
-        row.names=FALSE
+        row.names=TRUE
       )
       
       output.metadata<-paste0(

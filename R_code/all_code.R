@@ -393,17 +393,19 @@ get.conversion.map <- function( raw.counts.data,
     message("Caught server-side error:")
     message(exception)
     message("Using pre-computed conversion file instead...")
-    return(
-      as.data.frame(
-        read.csv(
-          prefetched_file_name,
-          sep='\t',
-          header=TRUE,
-          encoding='utf-8',
-          row.names = 1
-        )
+    
+    x.to.y.map <- as.data.frame(
+      read.csv(
+        prefetched_file_name,
+        sep='\t',
+        header=TRUE,
+        encoding='utf-8',
+        row.names = 1
       )
     )
+    print(head(x.to.y.map))
+    return(x.to.y.map)
+    
   }, finally = {
     message("Map loaded!")
   })

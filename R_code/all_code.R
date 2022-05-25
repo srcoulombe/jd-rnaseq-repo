@@ -496,14 +496,16 @@ save.spreadsheet <- function( DESeq2.results,
     # as this would prevent conversion to gene symbols:
     # see : https://www.biostars.org/p/302441/
     all_results$ID2 <- str_replace(all_results$ROWNAMES, pattern=".[0-9]+$", replacement = "")
-    all_results$ROWNAMES <- symbol.to.id.map[all_results$ID2,]
+    
+    #all_results$ROWNAMES <- symbol.to.id.map[all_results$ID2,]
+    all_results$external_gene_name <- symbol.to.id.map[all_results$ID2,]
     print(typeof(all_results))
     print(class(all_results))
     print(length(all_results))
     print(head(all_results))
     colnames(all_results)[1] <- "Ensembl ID"
     colnames(all_results)[2] <- "Version-less Ensembl ID"
-    colnames(all_results)[3] <- "external_gene_name"
+    #colnames(all_results)[3] <- "external_gene_name"
     
     all.dataframes[[contrast.name]] <- all_results
     
@@ -545,7 +547,7 @@ save.spreadsheet <- function( DESeq2.results,
         file=output.file.path, 
         quote=FALSE, 
         sep='\t', 
-        row.names=TRUE
+        row.names=FALSE
       )
       
       output.metadata<-paste0(

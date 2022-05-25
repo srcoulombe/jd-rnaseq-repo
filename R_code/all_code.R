@@ -482,8 +482,7 @@ save.spreadsheet <- function( DESeq2.results,
     }
     
     all_results <- join_all(all_results, by="ROWNAMES", type="full")
-    print(typeof(all_results))
-    print(class(all_results))
+    
    
     # make a column that will (eventually) store Gene Symbols
     all_results["ID1"] <- all_results["ROWNAMES"]
@@ -498,7 +497,9 @@ save.spreadsheet <- function( DESeq2.results,
     # see : https://www.biostars.org/p/302441/
     all_results$ID2 <- str_replace(all_results$ROWNAMES, pattern=".[0-9]+$", replacement = "")
     all_results$ROWNAMES <- symbol.to.id.map[all_results$ID2,]
-    
+    print(typeof(all_results))
+    print(class(all_results))
+    print(length(all_results))
     colnames(all_results)[1] <- "Ensembl ID"
     colnames(all_results)[2] <- "Version-less Ensembl ID"
     colnames(all_results)[3] <- "external_gene_name"

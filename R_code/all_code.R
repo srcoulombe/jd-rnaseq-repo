@@ -477,10 +477,11 @@ save.spreadsheet <- function( DESeq2.results,
       as.data.frame(relevant.edger.results)
     )
     print("made all_results")
-    print(dim(all_results))
+    print(head(all_results))
     for(i in 1:length(all_results)){
       all_results[[i]]$ROWNAMES  <- rownames(all_results[[i]])
     }
+    print(head(all_results))
     
     all_results <- join_all(all_results, by="ROWNAMES", type="full")
     

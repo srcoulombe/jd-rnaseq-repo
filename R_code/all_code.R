@@ -399,7 +399,8 @@ get.conversion.map <- function( raw.counts.data,
           prefetched_file_name,
           sep='\t',
           header=TRUE,
-          encoding='utf-8'
+          encoding='utf-8',
+          row.names = 1
         )
       )
     )

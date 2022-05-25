@@ -500,6 +500,7 @@ save.spreadsheet <- function( DESeq2.results,
     print(typeof(all_results))
     print(class(all_results))
     print(length(all_results))
+    print(head(all_results))
     colnames(all_results)[1] <- "Ensembl ID"
     colnames(all_results)[2] <- "Version-less Ensembl ID"
     colnames(all_results)[3] <- "external_gene_name"

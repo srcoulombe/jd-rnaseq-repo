@@ -431,9 +431,9 @@ save.spreadsheet <- function( DESeq2.results,
   if(dir.exists(file.path(mainDir, subDir))) {
     print(
       paste0(
-        "Directory",
+        "Directory ",
         file.path(mainDir, subDir),
-        "already exists.",
+        " already exists.",
         "Please change your output directory name"
       )
     )

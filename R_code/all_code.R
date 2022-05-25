@@ -476,15 +476,15 @@ save.spreadsheet <- function( DESeq2.results,
       as.data.frame(relevant.DESeq2.results),
       as.data.frame(relevant.edger.results)
     )
-    print("made all_results")
-    print(head(all_results))
+
     for(i in 1:length(all_results)){
       all_results[[i]]$ROWNAMES  <- rownames(all_results[[i]])
     }
-    print(head(all_results))
     
     all_results <- join_all(all_results, by="ROWNAMES", type="full")
-    
+    print(typeof(all_results))
+    print(class(all_results))
+   
     # make a column that will (eventually) store Gene Symbols
     all_results["ID1"] <- all_results["ROWNAMES"]
     all_results["ID2"] <- all_results["ROWNAMES"]

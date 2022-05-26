@@ -389,6 +389,7 @@ get.conversion.map <- function( raw.counts.data,
       ),
       mart=mart
     )
+    print(head(x.to.y.map))
   }, error=function(exception) {
     message("Caught server-side error:")
     message(exception)

@@ -389,8 +389,6 @@ get.conversion.map <- function( raw.counts.data,
       ),
       mart=mart
     )
-    print(typeof(x.to.y.map))
-    print(class(x.to.y.map))
   }, error=function(exception) {
     message("Caught server-side error:")
     message(exception)
@@ -409,8 +407,10 @@ get.conversion.map <- function( raw.counts.data,
     print(head(x.to.y.map))
     return(x.to.y.map)
   })
-   
+  print("got map from biomaRt")
+  print(head(x.to.y.map))
   rownames(x.to.y.map) <- x.to.y.map$ensembl_gene_id
+  print(head(x.to.y.map))
   x.to.y.map<-subset(x.to.y.map, select=('external_gene_name'))
   return(x.to.y.map)
 }

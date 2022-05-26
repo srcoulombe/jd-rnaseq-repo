@@ -514,7 +514,7 @@ save.spreadsheet <- function( DESeq2.results,
     # trim the Ensembl IDs in the ROWNAMES column to remove the .[0-9]+$
     # as this would prevent conversion to gene symbols:
     # see : https://www.biostars.org/p/302441/
-    all_results$ID2 <- str_replace(all_results$ROWNAMES, pattern=".[0-9]+$", replacement = "")
+    all_results$ID2 <- str_replace(all_results$ROWNAMES, pattern="\\.[0-9]+$", replacement = "")
     print("all_results_ID2")
     print(all_results$ID2[1:6])
 

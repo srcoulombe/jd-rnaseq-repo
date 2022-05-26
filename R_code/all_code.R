@@ -373,6 +373,22 @@ get.conversion.map <- function( raw.counts.data,
   #
   #
   #
+  print("Using pre-computed conversion file instead...")
+    
+    x.to.y.map <- as.data.frame(
+      read.csv(
+        prefetched_file_name,
+        sep='\t',
+        header=TRUE,
+        encoding='utf-8',
+        row.names = 1
+      )
+    )
+    message("Loaded map!")
+    print(head(x.to.y.map))
+    return(x.to.y.map)
+  
+  # use of biomart is deprecated; getBM returns nothing.
   mart <- useMart(
     biomart=biomart,
     dataset=dataset

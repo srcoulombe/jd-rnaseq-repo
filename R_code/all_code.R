@@ -373,7 +373,7 @@ get.conversion.map <- function( raw.counts.data,
   #
   #
   #
-  print("Using pre-computed conversion file instead...")
+  print("Using pre-computed file instead of biomaRt...")
     
     x.to.y.map <- as.data.frame(
       read.csv(
@@ -445,8 +445,6 @@ save.spreadsheet <- function( DESeq2.results,
   #
   #
   #
-  print("in save.spreadsheet")
-  print(head(symbol.to.id.map))
   if(dir.exists(file.path(mainDir, subDir))) {
     print(
       paste0(
@@ -462,9 +460,7 @@ save.spreadsheet <- function( DESeq2.results,
   
   all.dataframes <- list()
   for (contrast.name in colnames(contrasts)) {
-    print(contrast.name)
     contrast.conditions <- strsplit(contrast.name, "_")[[1]]
-    print(contrast.conditions)
     contrast.conditions <- c(contrast.conditions[2], contrast.conditions[4])
     print(contrast.conditions)
     relevant.columns <- lapply(contrast.conditions, grepl, colnames(raw.counts.data$raw.data))
@@ -514,16 +510,8 @@ save.spreadsheet <- function( DESeq2.results,
     # as this would prevent conversion to gene symbols:
     # see : https://www.biostars.org/p/302441/
     all_results$ID2 <- str_replace(all_results$ROWNAMES, pattern="\\.[0-9]+$", replacement = "")
-    print("all_results_ID2")
-    print(all_results$ID2[1:6])
 
     all_results$ROWNAMES <- symbol.to.id.map[c(all_results$ID2),]
-    print("ROWNAMES")
-    print(all_results$ROWNAMES[1:6])
-    print(typeof(all_results))
-    print(class(all_results))
-    print(length(all_results))
-    print(head(all_results))
     colnames(all_results)[1] <- "Ensembl ID"
     colnames(all_results)[2] <- "Version-less Ensembl ID"
     colnames(all_results)[3] <- "external_gene_name"

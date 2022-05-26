@@ -428,6 +428,7 @@ save.spreadsheet <- function( DESeq2.results,
   #
   #
   print("in save.spreadsheet")
+  print(head(symbol.to.id.map))
   if(dir.exists(file.path(mainDir, subDir))) {
     print(
       paste0(
@@ -499,7 +500,7 @@ save.spreadsheet <- function( DESeq2.results,
     print("all_results_ID2")
     print(all_results$ID2[1:6])
     return(all_results)
-    all_results$ROWNAMES <- symbol.to.id.map[all_results$ID2,]
+    all_results$ROWNAMES <- symbol.to.id.map[c(all_results$ID2),]
     print("ROWNAMES")
     print(all_results$ROWNAMES[1:6])
     print(typeof(all_results))

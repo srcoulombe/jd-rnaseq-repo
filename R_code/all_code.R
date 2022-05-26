@@ -499,7 +499,7 @@ save.spreadsheet <- function( DESeq2.results,
     all_results$ID2 <- str_replace(all_results$ROWNAMES, pattern=".[0-9]+$", replacement = "")
     print("all_results_ID2")
     print(all_results$ID2[1:6])
-    return(all_results)
+
     all_results$ROWNAMES <- symbol.to.id.map[c(all_results$ID2),]
     print("ROWNAMES")
     print(all_results$ROWNAMES[1:6])
